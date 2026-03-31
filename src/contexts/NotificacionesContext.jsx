@@ -1,18 +1,18 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { db } from '../services/db'
 import { shortId } from '../utils/formatters'
 
 const NotificacionesContext = createContext(null)
 
-const STORAGE_KEY = 'banda_notificaciones'
-const LEIDAS_KEY  = 'banda_notificaciones_leidas'
+const LEIDAS_KEY = 'banda_notificaciones_leidas'
 
 /** Genera las notificaciones automáticas según el día del mes */
 function generarAutomaticas() {
-  const hoy   = new Date()
-  const dia   = hoy.getDate()
-  const mes   = hoy.getMonth()    // 0-11
-  const anio  = hoy.getFullYear()
-  const key   = `auto-${anio}-${mes}`  // una por mes
+  const hoy  = new Date()
+  const dia  = hoy.getDate()
+  const mes  = hoy.getMonth()
+  const anio = hoy.getFullYear()
+  const key  = `auto-${anio}-${mes}`
 
   if (dia < 1 || dia > 7) return []
 
@@ -38,17 +38,20 @@ function generarAutomaticas() {
 }
 
 export function NotificacionesProvider({ children }) {
-  const [manuales, setManuales] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
-  })
+  const [manuales, setManuales] = useState([])
   const [leidas, setLeidas] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LEIDAS_KEY) || '[]') } catch { return [] }
   })
 
-  // Persistir
+  // Cargar notificaciones manuales desde db (Sheet + localStorage)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(manuales))
-  }, [manuales])
+    db.getAll('notificaciones').then(data => {
+      const activas = (data || []).filter(n => n.activo !== false)
+      setManuales(activas)
+    })
+  }, [])
+
+  // Persistir leídas
   useEffect(() => {
     localStorage.setItem(LEIDAS_KEY, JSON.stringify(leidas))
   }, [leidas])
@@ -69,19 +72,23 @@ export function NotificacionesProvider({ children }) {
     setLeidas(todas.map(n => n.id))
   }, [todas])
 
-  const agregarNotificacion = useCallback((data) => {
+  const agregarNotificacion = useCallback(async (data) => {
     const nueva = {
-      id:         `notif-${shortId()}`,
-      tipo:       data.tipo || 'info',
-      titulo:     data.titulo,
-      mensaje:    data.mensaje,
-      fecha:      new Date().toISOString(),
+      id:        `notif-${shortId()}`,
+      tipo:      data.tipo || 'info',
+      titulo:    data.titulo,
+      mensaje:   data.mensaje,
+      fecha:     new Date().toISOString(),
       automatica: false,
+      activo:    true,
     }
+    // Guardar en db (Sheet + localStorage caché)
+    await db.insert('notificaciones', nueva)
     setManuales(prev => [nueva, ...prev])
   }, [])
 
-  const eliminarNotificacion = useCallback((id) => {
+  const eliminarNotificacion = useCallback(async (id) => {
+    await db.remove('notificaciones', id)
     setManuales(prev => prev.filter(n => n.id !== id))
     setLeidas(prev => prev.filter(l => l !== id))
   }, [])
