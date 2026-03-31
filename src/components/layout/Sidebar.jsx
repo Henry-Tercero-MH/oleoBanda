@@ -1,19 +1,19 @@
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, BookOpen, DollarSign,
-  Settings, X, LogOut,
-} from 'lucide-react'
+  HouseIcon, UsersThreeIcon, MusicNotesIcon, CurrencyDollarIcon,
+  GearSixIcon, XIcon, SignOutIcon,
+} from '@phosphor-icons/react'
 import { useAuth, ROLES } from '../../contexts/AuthContext'
 
 const NAV_ITEMS = [
-  { to: '/',         label: 'Dashboard',  icon: LayoutDashboard, end: true },
+  { to: '/',         label: 'Dashboard',  icon: HouseIcon,          end: true },
   { separator: true, label: 'BANDA' },
-  { to: '/musicos',  label: 'Músicos',    icon: Users },
-  { to: '/recursos', label: 'Recursos',   icon: BookOpen },
+  { to: '/musicos',  label: 'Músicos',    icon: UsersThreeIcon },
+  { to: '/recursos', label: 'Recursos',   icon: MusicNotesIcon },
   { separator: true, label: 'ADMINISTRACIÓN' },
-  { to: '/finanzas', label: 'Finanzas',   icon: DollarSign },
+  { to: '/finanzas', label: 'Finanzas',   icon: CurrencyDollarIcon },
   { separator: true, label: 'SISTEMA' },
-  { to: '/ajustes',  label: 'Ajustes',    icon: Settings },
+  { to: '/ajustes',  label: 'Ajustes',    icon: GearSixIcon },
 ]
 
 export default function Sidebar({ open, onClose }) {
@@ -59,7 +59,7 @@ export default function Sidebar({ open, onClose }) {
             </div>
           </div>
           <button onClick={onClose} className="lg:hidden btn-icon btn-ghost text-gray-400">
-            <X size={18} />
+            <XIcon size={18} />
           </button>
         </div>
 
@@ -108,7 +108,7 @@ export default function Sidebar({ open, onClose }) {
               title="Cerrar sesión"
               className="btn-icon btn-ghost text-gray-400 hover:text-red-500"
             >
-              <LogOut size={16} />
+              <SignOutIcon size={16} />
             </button>
           </div>
         </div>

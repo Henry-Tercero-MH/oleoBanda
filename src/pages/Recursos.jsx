@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Plus, X, Trash2, ExternalLink, FileText, Image, Video, Music2, Upload, Search } from 'lucide-react'
+import { PlusIcon, XIcon, TrashIcon, ArrowSquareOutIcon, FileTextIcon, ImageIcon, VideoIcon, MusicNotesIcon, UploadSimpleIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { useRecursos, TIPOS_RECURSO } from '../contexts/RecursosContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -71,7 +71,7 @@ function ModalRecurso({ onClose }) {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-white">
           <h2 className="text-lg font-semibold text-gray-900">Agregar Recurso</h2>
-          <button onClick={onClose} className="btn-icon btn-ghost text-gray-400"><X size={18} /></button>
+          <button onClick={onClose} className="btn-icon btn-ghost text-gray-400"><XIcon size={18} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -151,7 +151,7 @@ function ModalRecurso({ onClose }) {
                   </div>
                 ) : (
                   <div>
-                    <Upload size={24} className="mx-auto mb-2 text-gray-400" />
+                    <UploadSimpleIcon size={24} className="mx-auto mb-2 text-gray-400" />
                     <p className="text-sm text-gray-600">Click para seleccionar</p>
                     <p className="text-xs text-gray-400 mt-1">
                       {form.tipo === 'partitura' ? 'PDF (máx. 5MB)' : 'JPG, PNG, GIF (máx. 5MB)'}
@@ -189,10 +189,10 @@ function ModalRecurso({ onClose }) {
 
 // ── Icono por tipo ─────────────────────────────────────────────────────────
 function IconTipo({ tipo, size = 20 }) {
-  if (tipo === 'video')     return <Video size={size} />
-  if (tipo === 'partitura') return <FileText size={size} />
-  if (tipo === 'imagen')    return <Image size={size} />
-  return <Music2 size={size} />
+  if (tipo === 'video')     return <VideoIcon size={size} />
+  if (tipo === 'partitura') return <FileTextIcon size={size} />
+  if (tipo === 'imagen')    return <ImageIcon size={size} />
+  return <MusicNotesIcon size={size} />
 }
 
 const COLOR_TIPO = {
@@ -289,13 +289,13 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
         <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
           <button onClick={abrirRecurso}
             className="btn-secondary btn-sm flex-1">
-            <ExternalLink size={13} />
+            <ArrowSquareOutIcon size={13} />
             {recurso.tipo === 'video' ? 'Ver video' : recurso.tipo === 'imagen' ? 'Ver imagen' : 'Descargar PDF'}
           </button>
           {esDirector && (
             <button onClick={() => onDelete(recurso)}
               className="btn-icon btn-ghost text-gray-400 hover:text-red-500 btn-sm">
-              <Trash2 size={15} />
+              <TrashIcon size={15} />
             </button>
           )}
         </div>
@@ -306,7 +306,7 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
                 <div className="relative w-full max-w-3xl sm:max-w-4xl max-h-full bg-black rounded-xl shadow-2xl flex flex-col items-center justify-center">
                   <button onClick={() => setVerVideo(false)}
                     className="absolute -top-4 -right-4 h-8 w-8 rounded-full bg-white text-gray-700 flex items-center justify-center shadow-lg">
-                    <X size={16} />
+                    <XIcon size={16} />
                   </button>
                   {recurso.url_video.includes('youtube.com') || recurso.url_video.includes('youtu.be') ? (
                     <iframe
@@ -336,7 +336,7 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
               className="max-w-full max-h-[80vh] rounded-xl shadow-2xl object-contain" />
             <button onClick={() => setVerImagen(false)}
               className="absolute -top-4 -right-4 h-8 w-8 rounded-full bg-white text-gray-700 flex items-center justify-center shadow-lg">
-              <X size={16} />
+              <XIcon size={16} />
             </button>
           </div>
         </div>
@@ -380,7 +380,7 @@ export default function Recursos() {
         </div>
         {esDirector && (
           <button className="btn-primary" onClick={() => setModal(true)}>
-            <Plus size={16} /> Agregar recurso
+            <PlusIcon size={16} /> Agregar recurso
           </button>
         )}
       </div>
@@ -389,7 +389,7 @@ export default function Recursos() {
       <div className="card space-y-3">
         {/* Búsqueda */}
         <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <MagnifyingGlassIcon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input className="input pl-9" placeholder="Buscar recurso..."
             value={busqueda} onChange={e => setBusqueda(e.target.value)} />
         </div>
@@ -426,13 +426,13 @@ export default function Recursos() {
       {/* Grid de recursos */}
       {filtrados.length === 0 ? (
         <div className="card text-center py-16">
-          <Music2 size={48} className="mx-auto mb-3 text-primary-300" />
+          <MusicNotesIcon size={48} className="mx-auto mb-3 text-primary-300" />
           <p className="text-gray-500">
             {recursos.length === 0 ? 'No hay recursos en la biblioteca' : 'No hay recursos con ese filtro'}
           </p>
           {esDirector && recursos.length === 0 && (
             <button className="btn-primary mt-4" onClick={() => setModal(true)}>
-              <Plus size={16} /> Agregar el primero
+              <PlusIcon size={16} /> Agregar el primero
             </button>
           )}
         </div>

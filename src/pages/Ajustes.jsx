@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react'
-import { CloudUpload, Download, Wifi, Music2, DollarSign, BookOpen, Users, CheckCircle, XCircle, AlertCircle, HardDrive, ExternalLink } from 'lucide-react'
+import { CloudArrowUpIcon, DownloadSimpleIcon, WifiHighIcon, MusicNotesIcon, CurrencyDollarIcon, BookOpenIcon, UsersThreeIcon, CheckCircleIcon, XCircleIcon, WarningCircleIcon, HardDriveIcon, ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { useAuth } from '../contexts/AuthContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useFinanzas } from '../contexts/FinanzasContext'
 import { useRecursos } from '../contexts/RecursosContext'
 import { testConexion, gasBackupCompleto, testDrive } from '../services/googleAppsScript'
 import Alert from '../components/ui/Alert'
+
+function EstadoBadge({ estado }) {
+  if (estado === 'ok')    return <span className="flex items-center gap-1.5 text-sm text-green-600"><CheckCircleIcon size={15} /> OK</span>
+  if (estado === 'error') return <span className="flex items-center gap-1.5 text-sm text-red-500"><XCircleIcon size={15} /> Error</span>
+  return <span className="flex items-center gap-1.5 text-sm text-gray-400"><WarningCircleIcon size={15} /> Sin verificar</span>
+}
 
 // Modal de contraseña interna
 function PasswordModal({ onSuccess }) {
@@ -59,6 +65,71 @@ export default function Ajustes() {
     }
   }, [])
 
+  const mostrarAlerta = (type, message) => {
+    setAlerta({ type, message })
+    setTimeout(() => setAlerta(null), 5000)
+  }
+
+  const handleTestConexion = async () => {
+    setTestLoading(true)
+    setConexion(null)
+    const res = await testConexion()
+    setConexion(res.ok ? 'ok' : 'error')
+    res.ok
+      ? mostrarAlerta('success', 'Conexión con Google Sheets exitosa ✓')
+      : mostrarAlerta('error', `Sin conexión: ${res.error || 'Verifica la URL en .env'}`)
+    setTestLoading(false)
+  }
+
+  const handleTestDrive = async () => {
+    setDriveLoading(true)
+    setDrive(null)
+    const res = await testDrive()
+    if (res.ok) {
+      setDrive({ ok: true, mensaje: res.mensaje, folderUrl: res.folderUrl })
+      mostrarAlerta('success', `Drive autorizado ✓ — ${res.mensaje}`)
+    } else {
+      setDrive('error')
+      mostrarAlerta('error', `Drive sin permiso: ${res.error}. Ejecuta testDrive() manualmente en Apps Script para autorizar.`)
+    }
+    setDriveLoading(false)
+  }
+
+  const handleBackup = async () => {
+    setBackupLoading(true)
+    try {
+      await gasBackupCompleto({
+        usuarios:   musicos,
+        ingresos,
+        pagosCuota,
+        recursos:   recursos.map(r => ({ ...r, archivo_base64: undefined })),
+        fecha:      new Date().toISOString(),
+      })
+      mostrarAlerta('success', `Backup enviado: ${musicos.length} músicos, ${ingresos.length} ingresos, ${pagosCuota.length} abonos, ${recursos.length} recursos`)
+    } catch (e) {
+      mostrarAlerta('error', `Error al hacer backup: ${e.message}`)
+    }
+    setBackupLoading(false)
+  }
+
+  const handleExportarJSON = () => {
+    const data = {
+      fecha_export: new Date().toISOString(),
+      musicos,
+      ingresos,
+      pagosCuota,
+      recursos: recursos.map(r => ({ ...r, archivo_base64: '[omitido]' })),
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `oleo-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    mostrarAlerta('success', 'Backup JSON descargado')
+  }
+
   if (showPasswordModal) {
     return <PasswordModal onSuccess={() => setShowPasswordModal(false)} />
   }
@@ -77,10 +148,10 @@ export default function Ajustes() {
         <h2 className="text-base font-semibold text-gray-900 mb-4">Datos del sistema</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Músicos',  value: musicos.length,    icon: Users,      color: 'bg-purple-100 text-purple-600' },
-            { label: 'Ingresos', value: ingresos.length,   icon: DollarSign, color: 'bg-green-100 text-green-600' },
-            { label: 'Abonos',   value: pagosCuota.length, icon: DollarSign, color: 'bg-orange-100 text-orange-600' },
-            { label: 'Recursos', value: recursos.length,   icon: BookOpen,   color: 'bg-blue-100 text-blue-600' },
+            { label: 'Músicos',  value: musicos.length,    icon: UsersThreeIcon,      color: 'bg-purple-100 text-purple-600' },
+            { label: 'Ingresos', value: ingresos.length,   icon: CurrencyDollarIcon,  color: 'bg-green-100 text-green-600' },
+            { label: 'Abonos',   value: pagosCuota.length, icon: CurrencyDollarIcon,  color: 'bg-orange-100 text-orange-600' },
+            { label: 'Recursos', value: recursos.length,   icon: BookOpenIcon,        color: 'bg-blue-100 text-blue-600' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="rounded-xl bg-gray-50 p-4 flex items-center gap-3">
               <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
@@ -103,7 +174,7 @@ export default function Ajustes() {
         </p>
         <div className="flex flex-wrap gap-3 items-center">
           <button onClick={handleTestConexion} disabled={testLoading} className="btn-secondary">
-            <Wifi size={16} />
+            <WifiHighIcon size={16} />
             {testLoading ? 'Probando...' : 'Probar Sheets'}
           </button>
           <EstadoBadge estado={conexion} />
@@ -121,7 +192,7 @@ export default function Ajustes() {
         </p>
         <div className="flex flex-wrap gap-3 items-center">
           <button onClick={handleTestDrive} disabled={driveLoading} className="btn-secondary">
-            <HardDrive size={16} />
+            <HardDriveIcon size={16} />
             {driveLoading ? 'Verificando...' : 'Verificar Drive'}
           </button>
           <EstadoBadge estado={drive === null ? null : drive === 'error' ? 'error' : 'ok'} />
@@ -132,7 +203,7 @@ export default function Ajustes() {
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-sm text-primary-600 hover:underline"
             >
-              <ExternalLink size={13} /> Ver carpeta en Drive
+              <ArrowSquareOutIcon size={13} /> Ver carpeta en Drive
             </a>
           )}
         </div>
@@ -145,11 +216,11 @@ export default function Ajustes() {
           <p className="text-sm text-gray-400 mb-4">Guarda una copia de todos los datos de la banda.</p>
           <div className="flex flex-wrap gap-3">
             <button onClick={handleBackup} disabled={backupLoading} className="btn-primary">
-              <CloudUpload size={16} />
+              <CloudArrowUpIcon size={16} />
               {backupLoading ? 'Enviando...' : 'Backup a Google Sheets'}
             </button>
             <button onClick={handleExportarJSON} className="btn-secondary">
-              <Download size={16} />
+              <DownloadSimpleIcon size={16} />
               Exportar JSON local
             </button>
           </div>
@@ -160,7 +231,7 @@ export default function Ajustes() {
       ) : (
         <div className="card bg-gray-50">
           <div className="flex items-center gap-2 text-sm text-gray-400">
-            <AlertCircle size={16} />
+            <WarningCircleIcon size={16} />
             Solo el director puede realizar respaldos.
           </div>
         </div>
@@ -184,7 +255,7 @@ export default function Ajustes() {
       </div>
 
       <div className="flex items-center gap-2 text-xs text-gray-300 pb-4">
-        <Music2 size={13} />
+        <MusicNotesIcon size={13} />
         <span>Óleo de Alegría · Sistema de Gestión v1.0</span>
       </div>
     </div>

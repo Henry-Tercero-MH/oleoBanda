@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, X, DollarSign, TrendingUp, TrendingDown, Info } from 'lucide-react'
+import { PlusIcon, TrashIcon, XIcon, CurrencyDollarIcon, TrendUpIcon, TrendDownIcon, InfoIcon } from '@phosphor-icons/react'
 import { useFinanzas, TIPOS_INGRESO } from '../contexts/FinanzasContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -62,7 +62,7 @@ function ModalIngreso({ onClose }) {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl animate-fade-in">
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Registrar Ingreso</h2>
-          <button onClick={onClose} className="btn-icon btn-ghost text-gray-400"><X size={18} /></button>
+          <button onClick={onClose} className="btn-icon btn-ghost text-gray-400"><XIcon size={18} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -122,7 +122,7 @@ function ModalIngreso({ onClose }) {
               <div>
                 <label className="label">Monto (Q) *</label>
                 <div className="relative">
-                  <DollarSign size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <CurrencyDollarIcon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input className="input pl-8" type="number" min="0.01" step="0.01"
                     value={form.monto} onChange={e => setForm(p => ({...p, monto: e.target.value}))}
                     placeholder="0.00" />
@@ -172,7 +172,7 @@ function TabIngresos({ onNuevo }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="card-gradient-green rounded-xl p-4 flex items-center gap-3 flex-1 mr-4">
-          <TrendingUp size={20} className="text-green-600" />
+          <TrendUpIcon size={20} className="text-green-600" />
           <div>
             <p className="text-xs text-green-600">Total recaudado</p>
             <p className="text-xl font-bold text-green-700">{formatCurrency(totalIngresos)}</p>
@@ -180,7 +180,7 @@ function TabIngresos({ onNuevo }) {
         </div>
         {esDirector && (
           <button className="btn-primary" onClick={onNuevo}>
-            <Plus size={16} /> Registrar ingreso
+            <PlusIcon size={16} /> Registrar ingreso
           </button>
         )}
       </div>
@@ -210,7 +210,7 @@ function TabIngresos({ onNuevo }) {
                     {esDirector && (
                       <button onClick={() => eliminarIngreso(item.id)}
                         className="btn-icon btn-ghost text-gray-300 hover:text-red-500 btn-sm">
-                        <Trash2 size={13} />
+                        <TrashIcon size={13} />
                       </button>
                     )}
                   </div>
@@ -223,11 +223,11 @@ function TabIngresos({ onNuevo }) {
 
       {ingresos.length === 0 && (
         <div className="card text-center py-12">
-          <DollarSign size={40} className="mx-auto mb-3 text-gray-300" />
+          <CurrencyDollarIcon size={40} className="mx-auto mb-3 text-gray-300" />
           <p className="text-gray-400">Sin ingresos registrados</p>
           {esDirector && (
             <button className="btn-primary mt-4" onClick={onNuevo}>
-              <Plus size={16} /> Registrar el primero
+              <PlusIcon size={16} /> Registrar el primero
             </button>
           )}
         </div>
@@ -362,7 +362,7 @@ function TabCuotas() {
                           {esDirector && (
                             <button onClick={() => eliminarPagoCuota(p.id)}
                               className="btn-icon btn-ghost text-gray-300 hover:text-red-500 btn-sm">
-                              <Trash2 size={13} />
+                              <TrashIcon size={13} />
                             </button>
                           )}
                         </div>
@@ -415,7 +415,7 @@ function TabHistorial() {
 
       {/* Nota informativa */}
       <div className="flex items-start gap-2 rounded-xl bg-blue-50 border border-blue-100 p-3">
-        <Info size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
+        <InfoIcon size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
         <p className="text-xs text-blue-700">
           El fondo disponible es la diferencia entre todos los ingresos y los abonos realizados a cuotas de instrumentos.
         </p>

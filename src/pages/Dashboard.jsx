@@ -1,4 +1,4 @@
-import { Music2, DollarSign, Users, BookOpen, TrendingDown, Calendar } from 'lucide-react'
+import { MusicNotesIcon, CurrencyDollarIcon, UsersThreeIcon, BookOpenIcon, TrendDownIcon, CalendarBlankIcon } from '@phosphor-icons/react'
 import { useAuth } from '../contexts/AuthContext'
 import { useFinanzas, TIPOS_INGRESO } from '../contexts/FinanzasContext'
 import { useMusicos } from '../contexts/MusicosContext'
@@ -52,7 +52,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="stat-card card-gradient-green">
           <div className="stat-icon bg-gradient-to-br from-green-500 to-emerald-600">
-            <DollarSign size={22} className="text-white" />
+            <CurrencyDollarIcon size={22} className="text-white" />
           </div>
           <div>
             <p className="stat-label text-green-700">Fondo Disponible</p>
@@ -65,7 +65,7 @@ export default function Dashboard() {
 
         <div className="stat-card card-gradient-orange">
           <div className="stat-icon bg-gradient-to-br from-orange-500 to-red-500">
-            <TrendingDown size={22} className="text-white" />
+            <TrendDownIcon size={22} className="text-white" />
           </div>
           <div>
             <p className="stat-label text-orange-700">Deuda Pendiente</p>
@@ -78,7 +78,7 @@ export default function Dashboard() {
 
         <div className="stat-card card-gradient-purple">
           <div className="stat-icon bg-gradient-to-br from-primary-500 to-violet-600">
-            <Users size={22} className="text-white" />
+            <UsersThreeIcon size={22} className="text-white" />
           </div>
           <div>
             <p className="stat-label text-primary-700">Músicos</p>
@@ -89,7 +89,7 @@ export default function Dashboard() {
 
         <div className="stat-card card-gradient-blue">
           <div className="stat-icon bg-gradient-to-br from-blue-500 to-cyan-600">
-            <BookOpen size={22} className="text-white" />
+            <BookOpenIcon size={22} className="text-white" />
           </div>
           <div>
             <p className="stat-label text-blue-700">Recursos</p>
@@ -109,7 +109,7 @@ export default function Dashboard() {
 
           {musicosConDeuda.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
-              <Music2 size={32} className="mx-auto mb-2 opacity-40" />
+              <MusicNotesIcon size={32} className="mx-auto mb-2 opacity-40" />
               <p className="text-sm">¡Sin deudas! Todos al día 🎉</p>
             </div>
           ) : (
@@ -151,12 +151,12 @@ export default function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-gray-800">Últimos Movimientos</h2>
-            <Calendar size={16} className="text-gray-400" />
+            <CalendarBlankIcon size={16} className="text-gray-400" />
           </div>
 
           {ultimosMovimientos.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
-              <DollarSign size={32} className="mx-auto mb-2 opacity-40" />
+              <CurrencyDollarIcon size={32} className="mx-auto mb-2 opacity-40" />
               <p className="text-sm">Sin movimientos aún</p>
             </div>
           ) : (

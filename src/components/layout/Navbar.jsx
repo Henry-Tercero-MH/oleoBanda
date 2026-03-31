@@ -1,4 +1,4 @@
-import { Menu } from 'lucide-react'
+import { ListIcon } from '@phosphor-icons/react'
 import { useLocation } from 'react-router-dom'
 import SyncStatusBar from '../SyncStatusBar'
 
@@ -20,7 +20,7 @@ export default function Navbar({ onMenuClick }) {
         onClick={onMenuClick}
         className="btn-icon btn-ghost text-gray-500 lg:hidden"
       >
-        <Menu size={20} />
+        <ListIcon size={20} />
       </button>
 
       <h1 className="flex-1 text-lg font-semibold text-gray-900">{title}</h1>

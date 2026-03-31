@@ -1,4 +1,4 @@
-import { AlertTriangle } from 'lucide-react'
+import { WarningIcon } from '@phosphor-icons/react'
 import Modal from './Modal'
 import Button from './Button'
 
@@ -42,7 +42,7 @@ export default function ConfirmModal({
     >
       <div className="flex gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50">
-          <AlertTriangle size={20} className="text-red-500" />
+          <WarningIcon size={20} className="text-red-500" />
         </div>
         <p className="text-sm text-gray-600 leading-relaxed pt-1">{message}</p>
       </div>

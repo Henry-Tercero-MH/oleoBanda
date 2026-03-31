@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { XIcon } from '@phosphor-icons/react'
 
 export default function Modal({ open, onClose, title, children, size = 'md', footer }) {
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function Modal({ open, onClose, title, children, size = 'md', foo
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           <button onClick={onClose} className="btn-icon btn-ghost text-gray-400 hover:text-gray-600">
-            <X size={18} />
+            <XIcon size={18} />
           </button>
         </div>
         {/* Body */}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Edit2, Trash2, X, Save, Music2, DollarSign, Eye, EyeOff } from 'lucide-react'
+import { PlusIcon, PencilSimpleIcon, TrashIcon, XIcon, FloppyDiskIcon, MusicNotesIcon, CurrencyDollarIcon, EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
 import { useMusicos, INSTRUMENTOS } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useFinanzas } from '../contexts/FinanzasContext'
@@ -59,7 +59,7 @@ function ModalMusico({ musico = null, onClose, onSave }) {
           <h2 className="text-lg font-semibold text-gray-900">
             {esEdicion ? 'Editar Músico' : 'Agregar Músico'}
           </h2>
-          <button onClick={onClose} className="btn-icon btn-ghost text-gray-400"><X size={18} /></button>
+          <button onClick={onClose} className="btn-icon btn-ghost text-gray-400"><XIcon size={18} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -102,7 +102,7 @@ function ModalMusico({ musico = null, onClose, onSave }) {
             <div className="col-span-2">
               <label className="label">Deuda total instrumento (Q)</label>
               <div className="relative">
-                <DollarSign size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <CurrencyDollarIcon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   className="input pl-8"
                   type="number"
@@ -127,7 +127,7 @@ function ModalMusico({ musico = null, onClose, onSave }) {
                 />
                 <button type="button" onClick={() => setShowPass(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {showPass ? <EyeSlashIcon size={15} /> : <EyeIcon size={15} />}
                 </button>
               </div>
             </div>
@@ -136,7 +136,7 @@ function ModalMusico({ musico = null, onClose, onSave }) {
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancelar</button>
             <button type="submit" disabled={loading} className="btn-primary flex-1">
-              <Save size={16} />
+              <FloppyDiskIcon size={16} />
               {loading ? 'Guardando...' : (esEdicion ? 'Guardar cambios' : 'Agregar músico')}
             </button>
           </div>
@@ -181,7 +181,7 @@ function ModalDeuda({ musico, onClose }) {
             <h2 className="text-lg font-semibold text-gray-900">Cuota — {musico.nombre}</h2>
             <p className="text-sm text-gray-400">{musico.instrumento}</p>
           </div>
-          <button onClick={onClose} className="btn-icon btn-ghost text-gray-400"><X size={18} /></button>
+          <button onClick={onClose} className="btn-icon btn-ghost text-gray-400"><XIcon size={18} /></button>
         </div>
 
         <div className="p-5 space-y-4 overflow-y-auto flex-1">
@@ -256,7 +256,7 @@ function ModalDeuda({ musico, onClose }) {
                     {esDirector && (
                       <button onClick={() => eliminarPagoCuota(p.id)}
                         className="btn-icon btn-ghost text-gray-400 hover:text-red-500 btn-sm">
-                        <Trash2 size={14} />
+                        <TrashIcon size={14} />
                       </button>
                     )}
                   </div>
@@ -298,7 +298,7 @@ export default function Musicos() {
         </div>
         {esDirector && (
           <button className="btn-primary" onClick={() => setModalMusico('nuevo')}>
-            <Plus size={16} /> Agregar músico
+            <PlusIcon size={16} /> Agregar músico
           </button>
         )}
       </div>
@@ -306,11 +306,11 @@ export default function Musicos() {
       {/* Grid de músicos */}
       {musicos.length === 0 ? (
         <div className="card text-center py-16">
-          <Music2 size={48} className="mx-auto mb-3 text-primary-300" />
+          <MusicNotesIcon size={48} className="mx-auto mb-3 text-primary-300" />
           <p className="text-gray-500">No hay músicos registrados</p>
           {esDirector && (
             <button className="btn-primary mt-4" onClick={() => setModalMusico('nuevo')}>
-              <Plus size={16} /> Agregar el primero
+              <PlusIcon size={16} /> Agregar el primero
             </button>
           )}
         </div>
@@ -372,16 +372,16 @@ export default function Musicos() {
                     onClick={() => setModalDeuda(m)}
                     className="btn-secondary btn-sm flex-1"
                   >
-                    <DollarSign size={14} /> Cuota
+                    <CurrencyDollarIcon size={14} /> Cuota
                   </button>
                   {esDirector && (
                     <>
                       <button onClick={() => setModalMusico(m)} className="btn-ghost btn-sm btn-icon">
-                        <Edit2 size={15} />
+                        <PencilSimpleIcon size={15} />
                       </button>
                       {m.id !== 'usr-director' && (
                         <button onClick={() => setConfirmDelete(m)} className="btn-ghost btn-sm btn-icon text-red-400 hover:text-red-600">
-                          <Trash2 size={15} />
+                          <TrashIcon size={15} />
                         </button>
                       )}
                     </>
