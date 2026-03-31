@@ -1,9 +1,97 @@
 import { useState } from 'react'
-import { PlusIcon, TrashIcon, XIcon, CurrencyDollarIcon, TrendUpIcon, TrendDownIcon, InfoIcon } from '@phosphor-icons/react'
+import { PlusIcon, TrashIcon, XIcon, CurrencyDollarIcon, TrendUpIcon, TrendDownIcon, InfoIcon, PrinterIcon } from '@phosphor-icons/react'
 import { useFinanzas, TIPOS_INGRESO } from '../contexts/FinanzasContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
 import { formatCurrency, formatDate } from '../utils/formatters'
+
+// ── Generador de recibo PDF (via window.print) ────────────────────────────
+function generarRecibo(pago, musico, pagadoTotal, deudaTotal) {
+  const pendiente = Math.max(0, deudaTotal - pagadoTotal)
+  const num = pago.id.replace('pago-', '').toUpperCase()
+  const fecha = new Date(pago.fecha || pago.creado_en)
+  const fechaStr = fecha.toLocaleDateString('es-GT', { day: '2-digit', month: 'long', year: 'numeric' })
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Recibo ${num}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Arial', sans-serif; background: #fff; color: #111; }
+    .page { width: 80mm; max-width: 80mm; margin: 0 auto; padding: 8mm 6mm; }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .divider { border-top: 1px dashed #999; margin: 6px 0; }
+    .divider-solid { border-top: 2px solid #111; margin: 6px 0; }
+    .logo { font-size: 15px; font-weight: 900; letter-spacing: 2px; }
+    .sub { font-size: 9px; color: #555; margin-top: 2px; }
+    .recibo-title { font-size: 11px; font-weight: bold; letter-spacing: 1px; margin: 8px 0 2px; text-transform: uppercase; }
+    .num { font-size: 9px; color: #555; }
+    .row { display: flex; justify-content: space-between; font-size: 10px; margin: 3px 0; }
+    .label { color: #555; }
+    .value { font-weight: bold; text-align: right; }
+    .monto-grande { font-size: 20px; font-weight: 900; text-align: center; margin: 10px 0 4px; }
+    .moneda { font-size: 11px; font-weight: normal; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 9px; font-weight: bold; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .firma { height: 28px; border-bottom: 1px solid #999; margin: 4px 0 2px; }
+    .footer-text { font-size: 8px; color: #888; text-align: center; margin-top: 6px; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      @page { margin: 0; size: 80mm auto; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="center">
+    <div class="logo">ÓLEO DE ALEGRÍA</div>
+    <div class="sub">Salmos 45:7 — Banda Musical Cristiana</div>
+  </div>
+  <div class="divider-solid"></div>
+  <div class="center">
+    <div class="recibo-title">Recibo de Pago</div>
+    <div class="num"># ${num}</div>
+  </div>
+  <div class="divider"></div>
+  <div class="row"><span class="label">Fecha:</span><span class="value">${fechaStr}</span></div>
+  <div class="row"><span class="label">Músico:</span><span class="value">${musico.nombre}</span></div>
+  <div class="row"><span class="label">Instrumento:</span><span class="value">${musico.instrumento || '—'}</span></div>
+  ${pago.descripcion ? `<div class="row"><span class="label">Concepto:</span><span class="value">${pago.descripcion}</span></div>` : ''}
+  <div class="divider"></div>
+  <div class="center">
+    <div class="monto-grande"><span class="moneda">Q</span> ${Number(pago.monto).toFixed(2)}</div>
+    <div class="sub">Monto recibido</div>
+  </div>
+  <div class="divider"></div>
+  <div class="row"><span class="label">Deuda total instrumento:</span><span class="value">Q ${Number(deudaTotal).toFixed(2)}</span></div>
+  <div class="row"><span class="label">Total abonado:</span><span class="value">Q ${Number(pagadoTotal).toFixed(2)}</span></div>
+  <div class="row bold"><span class="label">Saldo pendiente:</span>
+    <span class="value ${pendiente > 0 ? '' : ''}">Q ${Number(pendiente).toFixed(2)}</span>
+  </div>
+  <div class="center" style="margin-top:6px">
+    ${pendiente === 0
+      ? '<span class="badge badge-green">✓ DEUDA COMPLETAMENTE PAGADA</span>'
+      : '<span class="badge badge-red">Pendiente de pago</span>'}
+  </div>
+  <div class="divider"></div>
+  <div class="sub" style="margin-bottom:2px">Firma del director:</div>
+  <div class="firma"></div>
+  <div class="footer-text">Óleo de Alegría · Recibo generado el ${new Date().toLocaleDateString('es-GT')}</div>
+</div>
+<script>window.onload = () => { window.print(); }</script>
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=400,height=600')
+  if (win) {
+    win.document.write(html)
+    win.document.close()
+  }
+}
 
 const TABS = ['Ingresos', 'Cuotas', 'Historial']
 
@@ -359,12 +447,21 @@ function TabCuotas() {
                             <span className="text-xs text-gray-400 ml-2">{formatDate(p.fecha || p.creado_en)}</span>
                             {p.descripcion && <span className="text-xs text-gray-400 ml-1">· {p.descripcion}</span>}
                           </div>
-                          {esDirector && (
-                            <button onClick={() => eliminarPagoCuota(p.id)}
-                              className="btn-icon btn-ghost text-gray-300 hover:text-red-500 btn-sm">
-                              <TrashIcon size={13} />
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => generarRecibo(p, m, pagado, m.deuda_total || 0)}
+                              className="btn-icon btn-ghost text-gray-300 hover:text-primary-500 btn-sm"
+                              title="Imprimir recibo"
+                            >
+                              <PrinterIcon size={14} />
                             </button>
-                          )}
+                            {esDirector && (
+                              <button onClick={() => eliminarPagoCuota(p.id)}
+                                className="btn-icon btn-ghost text-gray-300 hover:text-red-500 btn-sm">
+                                <TrashIcon size={13} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
