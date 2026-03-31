@@ -17,6 +17,7 @@ function ModalMusico({ musico = null, onClose, onSave }) {
     instrumento: musico?.instrumento || '',
     rol:         musico?.rol         || 'musico',
     deuda_total: musico?.deuda_total || '',
+    foto_url:    musico?.foto_url    || '',
     password:    '',
   })
   const [showPass, setShowPass] = useState(false)
@@ -42,6 +43,7 @@ function ModalMusico({ musico = null, onClose, onSave }) {
       instrumento: form.instrumento,
       rol:         form.rol,
       deuda_total: parseFloat(form.deuda_total) || 0,
+      foto_url:    form.foto_url,
     }
     if (form.password) data.password = form.password
     const result = await onSave(data)
@@ -66,6 +68,16 @@ function ModalMusico({ musico = null, onClose, onSave }) {
           )}
 
           <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                          <label className="label">URL de foto (opcional)</label>
+                          <input className="input" value={form.foto_url} onChange={e => setForm(p => ({...p, foto_url: e.target.value}))} placeholder="https://...jpg/png" />
+                          {form.foto_url && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <img src={form.foto_url} alt="Foto" className="h-16 w-16 rounded-full object-cover border" onError={e => e.target.style.display='none'} />
+                              <span className="text-xs text-gray-400">Vista previa</span>
+                            </div>
+                          )}
+                        </div>
             <div className="col-span-2">
               <label className="label">Nombre completo *</label>
               <input className="input" value={form.nombre} onChange={e => setForm(p => ({...p, nombre: e.target.value}))} placeholder="Juan Pérez" />
@@ -313,9 +325,13 @@ export default function Musicos() {
               <div key={m.id} className="card hover:shadow-lg transition-all">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 rounded-full bg-gradient-to-br from-primary-400 to-violet-500 flex items-center justify-center text-white font-bold text-lg shadow">
-                      {m.nombre?.charAt(0)}
-                    </div>
+                    {m.foto_url ? (
+                      <img src={m.foto_url} alt={m.nombre} className="h-11 w-11 rounded-full object-cover border shadow" onError={e => e.target.style.display='none'} />
+                    ) : (
+                      <div className="h-11 w-11 rounded-full bg-gradient-to-br from-primary-400 to-violet-500 flex items-center justify-center text-white font-bold text-lg shadow">
+                        {m.nombre?.charAt(0)}
+                      </div>
+                    )}
                     <div>
                       <p className="font-semibold text-gray-900">{m.nombre}</p>
                       <p className="text-sm text-gray-400">{m.instrumento}</p>

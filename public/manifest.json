@@ -1,6 +1,6 @@
 {
-  "name": "OLEO DE ALEGRIA",
-  "short_name": "OLEO DE ALEGRIA",
+  "name": "OLEO",
+  "short_name": "OLEO",
   "description": "Sistema de gestión para banda Óleo de Alegría",
   "start_url": "/",
   "display": "standalone",
