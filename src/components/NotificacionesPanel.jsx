@@ -1,4 +1,41 @@
 import { useState } from 'react'
+
+// Genera sonidos con Web Audio API sin archivos externos
+function playSound(tipo) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+
+    if (tipo === 'urgente') {
+      // Dos pulsos agudos urgentes
+      ;[0, 0.25].forEach(delay => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(880, ctx.currentTime + delay)
+        osc.frequency.linearRampToValueAtTime(660, ctx.currentTime + delay + 0.15)
+        gain.gain.setValueAtTime(0.4, ctx.currentTime + delay)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.2)
+        osc.start(ctx.currentTime + delay)
+        osc.stop(ctx.currentTime + delay + 0.2)
+      })
+    } else {
+      // Campana suave para recordatorio/aviso
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(523, ctx.currentTime)       // Do5
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.12) // Mi5
+      gain.gain.setValueAtTime(0.35, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.5)
+    }
+  } catch { /* silencioso si el navegador no soporta */ }
+}
 import { BellIcon, BellRingingIcon, XIcon, TrashIcon, PlusIcon, WarningIcon, InfoIcon, CheckCircleIcon, MegaphoneIcon } from '@phosphor-icons/react'
 import { useNotificaciones } from '../contexts/NotificacionesContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -68,6 +105,10 @@ export default function NotificacionesPanel() {
 
   const handleAbrir = () => {
     setOpen(true)
+    if (noLeidas > 0) {
+      const tieneUrgente = notificaciones.some(n => !getLeidasLocal().includes(n.id) && n.tipo === 'urgente')
+      playSound(tieneUrgente ? 'urgente' : 'normal')
+    }
   }
 
   const handleCerrar = () => {
