@@ -5,92 +5,79 @@ import { useMusicos } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
 import { formatCurrency, formatDate } from '../utils/formatters'
 
-// ── Generador de recibo PDF (via window.print) ────────────────────────────
-function generarRecibo(pago, musico, pagadoTotal, deudaTotal) {
+// ── Modal de recibo (compatible móvil/PWA) ────────────────────────────────
+function ReciboModal({ pago, musico, pagadoTotal, deudaTotal, onClose }) {
   const pendiente = Math.max(0, deudaTotal - pagadoTotal)
   const num = pago.id.replace('pago-', '').toUpperCase()
-  const fecha = new Date(pago.fecha || pago.creado_en)
-  const fechaStr = fecha.toLocaleDateString('es-GT', { day: '2-digit', month: 'long', year: 'numeric' })
+  const fechaStr = new Date(pago.fecha || pago.creado_en)
+    .toLocaleDateString('es-GT', { day: '2-digit', month: 'long', year: 'numeric' })
 
-  const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8"/>
-  <title>Recibo ${num}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Arial', sans-serif; background: #fff; color: #111; }
-    .page { width: 80mm; max-width: 80mm; margin: 0 auto; padding: 8mm 6mm; }
-    .center { text-align: center; }
-    .bold { font-weight: bold; }
-    .divider { border-top: 1px dashed #999; margin: 6px 0; }
-    .divider-solid { border-top: 2px solid #111; margin: 6px 0; }
-    .logo { font-size: 15px; font-weight: 900; letter-spacing: 2px; }
-    .sub { font-size: 9px; color: #555; margin-top: 2px; }
-    .recibo-title { font-size: 11px; font-weight: bold; letter-spacing: 1px; margin: 8px 0 2px; text-transform: uppercase; }
-    .num { font-size: 9px; color: #555; }
-    .row { display: flex; justify-content: space-between; font-size: 10px; margin: 3px 0; }
-    .label { color: #555; }
-    .value { font-weight: bold; text-align: right; }
-    .monto-grande { font-size: 20px; font-weight: 900; text-align: center; margin: 10px 0 4px; }
-    .moneda { font-size: 11px; font-weight: normal; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 9px; font-weight: bold; }
-    .badge-green { background: #d1fae5; color: #065f46; }
-    .badge-red { background: #fee2e2; color: #991b1b; }
-    .firma { height: 28px; border-bottom: 1px solid #999; margin: 4px 0 2px; }
-    .footer-text { font-size: 8px; color: #888; text-align: center; margin-top: 6px; }
-    @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      @page { margin: 0; size: 80mm auto; }
-    }
-  </style>
-</head>
-<body>
-<div class="page">
-  <div class="center">
-    <div class="logo">ÓLEO DE ALEGRÍA</div>
-    <div class="sub">Salmos 45:7 — Banda Musical Cristiana</div>
-  </div>
-  <div class="divider-solid"></div>
-  <div class="center">
-    <div class="recibo-title">Recibo de Pago</div>
-    <div class="num"># ${num}</div>
-  </div>
-  <div class="divider"></div>
-  <div class="row"><span class="label">Fecha:</span><span class="value">${fechaStr}</span></div>
-  <div class="row"><span class="label">Músico:</span><span class="value">${musico.nombre}</span></div>
-  <div class="row"><span class="label">Instrumento:</span><span class="value">${musico.instrumento || '—'}</span></div>
-  ${pago.descripcion ? `<div class="row"><span class="label">Concepto:</span><span class="value">${pago.descripcion}</span></div>` : ''}
-  <div class="divider"></div>
-  <div class="center">
-    <div class="monto-grande"><span class="moneda">Q</span> ${Number(pago.monto).toFixed(2)}</div>
-    <div class="sub">Monto recibido</div>
-  </div>
-  <div class="divider"></div>
-  <div class="row"><span class="label">Deuda total instrumento:</span><span class="value">Q ${Number(deudaTotal).toFixed(2)}</span></div>
-  <div class="row"><span class="label">Total abonado:</span><span class="value">Q ${Number(pagadoTotal).toFixed(2)}</span></div>
-  <div class="row bold"><span class="label">Saldo pendiente:</span>
-    <span class="value ${pendiente > 0 ? '' : ''}">Q ${Number(pendiente).toFixed(2)}</span>
-  </div>
-  <div class="center" style="margin-top:6px">
-    ${pendiente === 0
-      ? '<span class="badge badge-green">✓ DEUDA COMPLETAMENTE PAGADA</span>'
-      : '<span class="badge badge-red">Pendiente de pago</span>'}
-  </div>
-  <div class="divider"></div>
-  <div class="sub" style="margin-bottom:2px">Firma del director:</div>
-  <div class="firma"></div>
-  <div class="footer-text">Óleo de Alegría · Recibo generado el ${new Date().toLocaleDateString('es-GT')}</div>
-</div>
-<script>window.onload = () => { window.print(); }</script>
-</body>
-</html>`
+  const handlePrint = () => window.print()
 
-  const win = window.open('', '_blank', 'width=400,height=600')
-  if (win) {
-    win.document.write(html)
-    win.document.close()
-  }
+  return (
+    <>
+      {/* Estilos de impresión: ocultar todo excepto #recibo-print */}
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #recibo-print { display: block !important; position: fixed; inset: 0; }
+          #recibo-print * { display: revert; }
+          @page { margin: 0; size: 80mm auto; }
+        }
+      `}</style>
+
+      {/* Overlay y modal visible en pantalla */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:hidden">
+        <div className="w-full max-w-xs bg-white rounded-2xl shadow-2xl animate-fade-in overflow-hidden">
+          {/* Botones top */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 print:hidden">
+            <span className="text-sm font-semibold text-gray-700">Recibo # {num}</span>
+            <div className="flex items-center gap-2">
+              <button onClick={handlePrint}
+                className="flex items-center gap-1.5 text-xs font-medium bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700">
+                <PrinterIcon size={13} /> Imprimir / PDF
+              </button>
+              <button onClick={onClose} className="btn-icon btn-ghost text-gray-400">
+                <XIcon size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Contenido del recibo */}
+          <div id="recibo-print" className="p-5 font-mono text-xs space-y-1">
+            <p className="text-center text-base font-black tracking-widest">ÓLEO DE ALEGRÍA</p>
+            <p className="text-center text-[10px] text-gray-500">Salmos 45:7 — Banda Musical Cristiana</p>
+            <div className="border-t-2 border-black my-2" />
+            <p className="text-center font-bold uppercase tracking-wider">Recibo de Pago</p>
+            <p className="text-center text-[10px] text-gray-500"># {num}</p>
+            <div className="border-t border-dashed border-gray-400 my-2" />
+            <div className="flex justify-between"><span className="text-gray-500">Fecha:</span><span className="font-bold">{fechaStr}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">Músico:</span><span className="font-bold">{musico.nombre}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">Instrumento:</span><span className="font-bold">{musico.instrumento || '—'}</span></div>
+            {pago.descripcion && (
+              <div className="flex justify-between"><span className="text-gray-500">Concepto:</span><span className="font-bold text-right max-w-[55%]">{pago.descripcion}</span></div>
+            )}
+            <div className="border-t border-dashed border-gray-400 my-2" />
+            <p className="text-center text-3xl font-black my-2">Q {Number(pago.monto).toFixed(2)}</p>
+            <p className="text-center text-[10px] text-gray-500">Monto recibido</p>
+            <div className="border-t border-dashed border-gray-400 my-2" />
+            <div className="flex justify-between"><span className="text-gray-500">Deuda total:</span><span>Q {Number(deudaTotal).toFixed(2)}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">Total abonado:</span><span>Q {Number(pagadoTotal).toFixed(2)}</span></div>
+            <div className="flex justify-between font-bold"><span>Saldo pendiente:</span><span>Q {Number(pendiente).toFixed(2)}</span></div>
+            <p className={`text-center text-[10px] font-bold mt-1 ${pendiente === 0 ? 'text-green-700' : 'text-red-600'}`}>
+              {pendiente === 0 ? '✓ DEUDA COMPLETAMENTE PAGADA' : 'Pendiente de pago'}
+            </p>
+            <div className="border-t border-dashed border-gray-400 my-2" />
+            <p className="text-[10px] text-gray-500">Firma del director:</p>
+            <div className="h-7 border-b border-gray-400 mb-1" />
+            <p className="text-center text-[9px] text-gray-400">
+              Óleo de Alegría · Generado el {new Date().toLocaleDateString('es-GT')}
+            </p>
+          </div>
+        </div>
+      </div>
+    </>
+  )
 }
 
 const TABS = ['Ingresos', 'Cuotas', 'Historial']
@@ -332,6 +319,7 @@ function TabCuotas() {
 
   const [expandido, setExpandido] = useState(null)
   const [formPago, setFormPago] = useState({ monto: '', fecha: new Date().toISOString().slice(0, 10), descripcion: '' })
+  const [recibo, setRecibo] = useState(null) // { pago, musico, pagadoTotal, deudaTotal }
 
   const handleAbono = async (musicoId, pendiente) => {
     if (!formPago.monto || parseFloat(formPago.monto) <= 0) return
@@ -449,7 +437,7 @@ function TabCuotas() {
                           </div>
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => generarRecibo(p, m, pagado, m.deuda_total || 0)}
+                              onClick={() => setRecibo({ pago: p, musico: m, pagadoTotal: pagado, deudaTotal: m.deuda_total || 0 })}
                               className="btn-icon btn-ghost text-gray-300 hover:text-primary-500 btn-sm"
                               title="Imprimir recibo"
                             >
@@ -472,6 +460,16 @@ function TabCuotas() {
           </div>
         )
       })}
+
+      {recibo && (
+        <ReciboModal
+          pago={recibo.pago}
+          musico={recibo.musico}
+          pagadoTotal={recibo.pagadoTotal}
+          deudaTotal={recibo.deudaTotal}
+          onClose={() => setRecibo(null)}
+        />
+      )}
     </div>
   )
 }
