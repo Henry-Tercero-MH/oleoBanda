@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CloudUpload, Download, Wifi, Music2, DollarSign, BookOpen, Users, CheckCircle, XCircle, AlertCircle, HardDrive, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useMusicos } from '../contexts/MusicosContext'
@@ -7,88 +7,60 @@ import { useRecursos } from '../contexts/RecursosContext'
 import { testConexion, gasBackupCompleto, testDrive } from '../services/googleAppsScript'
 import Alert from '../components/ui/Alert'
 
-function EstadoBadge({ estado }) {
-  if (estado === 'ok')    return <span className="flex items-center gap-1.5 text-sm text-green-600"><CheckCircle size={15} /> OK</span>
-  if (estado === 'error') return <span className="flex items-center gap-1.5 text-sm text-red-500"><XCircle size={15} /> Error</span>
-  return <span className="flex items-center gap-1.5 text-sm text-gray-400"><AlertCircle size={15} /> Sin verificar</span>
+// Modal de contraseña interna
+function PasswordModal({ onSuccess }) {
+  const [input, setInput] = useState('')
+  const [error, setError] = useState('')
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (input === 'admin') {
+      sessionStorage.setItem('ajustes_autorizado', '1')
+      onSuccess()
+    } else {
+      setError('Contraseña incorrecta')
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-xs animate-fade-in flex flex-col gap-4">
+        <h2 className="text-lg font-semibold text-gray-900 text-center">Contraseña requerida</h2>
+        <input
+          type="password"
+          className="input text-center"
+          placeholder="Contraseña interna"
+          value={input}
+          onChange={e => { setInput(e.target.value); setError('') }}
+          autoFocus
+        />
+        {error && <div className="text-sm text-red-600 text-center">{error}</div>}
+        <button type="submit" className="btn-primary w-full">Entrar</button>
+      </form>
+    </div>
+  )
 }
 
 export default function Ajustes() {
-  const { sesion, esDirector }    = useAuth()
-  const { musicos }               = useMusicos()
-  const { ingresos, pagosCuota }  = useFinanzas()
-  const { recursos }              = useRecursos()
+  const { sesion, esDirector } = useAuth()
+  const { musicos } = useMusicos()
+  const { ingresos, pagosCuota } = useFinanzas()
+  const { recursos } = useRecursos()
 
-  const [alerta, setAlerta]               = useState(null)
+  const [alerta, setAlerta] = useState(null)
   const [backupLoading, setBackupLoading] = useState(false)
-  const [testLoading, setTestLoading]     = useState(false)
-  const [driveLoading, setDriveLoading]   = useState(false)
-  const [conexion, setConexion]           = useState(null)  // null | 'ok' | 'error'
-  const [drive, setDrive]                 = useState(null)  // null | { ok, mensaje, folderUrl } | 'error'
+  const [testLoading, setTestLoading] = useState(false)
+  const [driveLoading, setDriveLoading] = useState(false)
+  const [conexion, setConexion] = useState(null)  // null | 'ok' | 'error'
+  const [drive, setDrive] = useState(null)  // null | { ok, mensaje, folderUrl } | 'error'
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
-  const mostrarAlerta = (type, message) => {
-    setAlerta({ type, message })
-    setTimeout(() => setAlerta(null), 5000)
-  }
-
-  const handleTestConexion = async () => {
-    setTestLoading(true)
-    setConexion(null)
-    const res = await testConexion()
-    setConexion(res.ok ? 'ok' : 'error')
-    res.ok
-      ? mostrarAlerta('success', 'Conexión con Google Sheets exitosa ✓')
-      : mostrarAlerta('error', `Sin conexión: ${res.error || 'Verifica la URL en .env'}`)
-    setTestLoading(false)
-  }
-
-  const handleTestDrive = async () => {
-    setDriveLoading(true)
-    setDrive(null)
-    const res = await testDrive()
-    if (res.ok) {
-      setDrive({ ok: true, mensaje: res.mensaje, folderUrl: res.folderUrl })
-      mostrarAlerta('success', `Drive autorizado ✓ — ${res.mensaje}`)
-    } else {
-      setDrive('error')
-      mostrarAlerta('error', `Drive sin permiso: ${res.error}. Ejecuta testDrive() manualmente en Apps Script para autorizar.`)
+  useEffect(() => {
+    if (!sessionStorage.getItem('ajustes_autorizado')) {
+      setShowPasswordModal(true)
     }
-    setDriveLoading(false)
-  }
+  }, [])
 
-  const handleBackup = async () => {
-    setBackupLoading(true)
-    try {
-      await gasBackupCompleto({
-        usuarios:   musicos,
-        ingresos,
-        pagosCuota,
-        recursos:   recursos.map(r => ({ ...r, archivo_base64: undefined })),
-        fecha:      new Date().toISOString(),
-      })
-      mostrarAlerta('success', `Backup enviado: ${musicos.length} músicos, ${ingresos.length} ingresos, ${pagosCuota.length} abonos, ${recursos.length} recursos`)
-    } catch (e) {
-      mostrarAlerta('error', `Error al hacer backup: ${e.message}`)
-    }
-    setBackupLoading(false)
-  }
-
-  const handleExportarJSON = () => {
-    const data = {
-      fecha_export: new Date().toISOString(),
-      musicos,
-      ingresos,
-      pagosCuota,
-      recursos: recursos.map(r => ({ ...r, archivo_base64: '[omitido]' })),
-    }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = `oleo-backup-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    mostrarAlerta('success', 'Backup JSON descargado')
+  if (showPasswordModal) {
+    return <PasswordModal onSuccess={() => setShowPasswordModal(false)} />
   }
 
   return (
