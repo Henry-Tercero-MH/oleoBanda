@@ -1,6 +1,7 @@
 import { ListIcon } from '@phosphor-icons/react'
 import { useLocation } from 'react-router-dom'
 import SyncStatusBar from '../SyncStatusBar'
+import NotificacionesPanel from '../NotificacionesPanel'
 
 const TITLES = {
   '/':         'Dashboard',
@@ -25,6 +26,7 @@ export default function Navbar({ onMenuClick }) {
 
       <h1 className="flex-1 text-lg font-semibold text-gray-900">{title}</h1>
 
+      <NotificacionesPanel />
       <SyncStatusBar />
 
       <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500">
