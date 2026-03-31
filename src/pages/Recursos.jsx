@@ -187,14 +187,29 @@ const COLOR_TIPO = {
   imagen:    'bg-green-100 text-green-600',
 }
 
+// Utilidad para obtener el embed de YouTube
+function getYoutubeEmbedUrl(url) {
+  // Soporta youtube.com/watch?v=... y youtu.be/...
+  var videoId = ''
+  if (url.includes('youtube.com')) {
+    var match = url.match(/[?&]v=([^&]+)/)
+    videoId = match ? match[1] : ''
+  } else if (url.includes('youtu.be')) {
+    var match = url.match(/youtu\.be\/([^?&]+)/)
+    videoId = match ? match[1] : ''
+  }
+  return videoId ? `https://www.youtube.com/embed/${videoId}` : url
+}
+
 // ── Tarjeta de recurso ─────────────────────────────────────────────────────
 function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
   const [verImagen, setVerImagen] = useState(false)
+  const [verVideo, setVerVideo] = useState(false)
   const musico = musicos.find(m => m.id === recurso.musico_id)
 
   const abrirRecurso = () => {
     if (recurso.tipo === 'video') {
-      window.open(recurso.url_video, '_blank', 'noopener,noreferrer')
+      setVerVideo(true)
     } else if (recurso.tipo === 'imagen') {
       setVerImagen(true)
     } else if (recurso.tipo === 'partitura' && recurso.archivo_base64) {
@@ -244,7 +259,7 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
           <button onClick={abrirRecurso}
             className="btn-secondary btn-sm flex-1">
             <ExternalLink size={13} />
-            {recurso.tipo === 'video' ? 'Abrir video' : recurso.tipo === 'imagen' ? 'Ver imagen' : 'Descargar PDF'}
+            {recurso.tipo === 'video' ? 'Ver video' : recurso.tipo === 'imagen' ? 'Ver imagen' : 'Descargar PDF'}
           </button>
           {esDirector && (
             <button onClick={() => onDelete(recurso)}
@@ -253,6 +268,34 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
             </button>
           )}
         </div>
+            {/* Lightbox video */}
+            {verVideo && recurso.tipo === 'video' && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+                onClick={() => setVerVideo(false)}>
+                <div className="relative max-w-2xl w-full max-h-full bg-black rounded-xl shadow-2xl flex flex-col items-center justify-center">
+                  <button onClick={() => setVerVideo(false)}
+                    className="absolute -top-4 -right-4 h-8 w-8 rounded-full bg-white text-gray-700 flex items-center justify-center shadow-lg">
+                    <X size={16} />
+                  </button>
+                  {recurso.url_video.includes('youtube.com') || recurso.url_video.includes('youtu.be') ? (
+                    <iframe
+                      width="560"
+                      height="315"
+                      src={getYoutubeEmbedUrl(recurso.url_video)}
+                      title="YouTube video player"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="rounded-xl max-w-full max-h-[70vh]"
+                    />
+                  ) : (
+                    <video src={recurso.url_video} controls className="rounded-xl max-w-full max-h-[70vh] bg-black" />
+                  )}
+                </div>
+              </div>
+            )}
+
+      // Utilidad para obtener el embed de YouTube
       </div>
 
       {/* Lightbox imagen */}
