@@ -18,22 +18,7 @@ export const ROLES = {
   },
 }
 
-// SHA-256 de 'director123'
-const HASH_DIRECTOR_DEFAULT = '9e4d7bba246abe731743986c4dc50897b68b1d0249a066abb3530fcbaa33dab3'
-
-const USUARIOS_DEFAULT = [
-  {
-    id: 'usr-director',
-    nombre: 'Director',
-    email: 'director@banda.com',
-    password_hash: HASH_DIRECTOR_DEFAULT,
-    rol: 'director',
-    instrumento: 'Dirección',
-    deuda_total: 0,
-    activo: true,
-    creado_en: new Date().toISOString(),
-  },
-]
+const USUARIOS_DEFAULT = []
 
 export function AuthProvider({ children }) {
   const [usuarios, setUsuarios] = useState(() => {

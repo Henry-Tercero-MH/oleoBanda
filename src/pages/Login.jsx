@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import Button from '../components/ui/Button'
@@ -35,7 +36,7 @@ export default function Login() {
     navigate(from, { replace: true })
   }
 
-  const entrarDemo = () => navigate('/', { replace: true })
+
 
   return (
     <div className="min-h-screen bg-white flex">
@@ -59,6 +60,8 @@ export default function Login() {
           <p className="text-gray-500 text-sm max-w-xs leading-relaxed">
             Sistema de gestión para la banda — recursos, músicos y finanzas en un solo lugar.
           </p>
+
+          {/* Eliminado: Ver demo sin iniciar sesión, Acceso director, credenciales de ejemplo */}
         </div>
       </div>
 
@@ -97,7 +100,7 @@ export default function Login() {
                   name="email"
                   value={form.email}
                   onChange={handleChange}
-                  placeholder="musico@oleo.com"
+                  placeholder="Correo electrónico"
                   className="input pl-9"
                   autoComplete="email"
                   autoFocus
@@ -128,27 +131,14 @@ export default function Login() {
               </div>
             </div>
 
-            <Button type="submit" variant="primary" loading={loading} className="w-full btn-lg">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full btn btn-lg bg-black text-white hover:bg-gray-900 focus:ring-gray-700 disabled:opacity-50"
+            >
               {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-            </Button>
+            </button>
           </form>
-
-          {/* Demo */}
-          <button
-            onClick={entrarDemo}
-            className="mt-3 w-full py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-sm text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors"
-          >
-            👀 Ver demo sin iniciar sesión
-          </button>
-
-          {/* Credenciales */}
-          <div className="mt-6 rounded-xl bg-gray-50 border border-gray-200 p-4">
-            <p className="text-xs font-semibold text-gray-500 mb-2">Acceso director</p>
-            <div className="space-y-1 text-xs text-gray-600 font-mono">
-              <p><span className="text-gray-400">Email: </span>director@banda.com</p>
-              <p><span className="text-gray-400">Pass:  </span>director123</p>
-            </div>
-          </div>
 
           <p className="mt-6 text-center text-xs text-gray-300">
             Óleo de Alegría v1.0
