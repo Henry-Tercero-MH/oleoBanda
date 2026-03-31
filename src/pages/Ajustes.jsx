@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
-import { CloudArrowUpIcon, DownloadSimpleIcon, WifiHighIcon, MusicNotesIcon, CurrencyDollarIcon, BookOpenIcon, UsersThreeIcon, CheckCircleIcon, XCircleIcon, WarningCircleIcon, HardDriveIcon, ArrowSquareOutIcon } from '@phosphor-icons/react'
+import { useState, useEffect, useRef } from 'react'
+import { CloudArrowUpIcon, DownloadSimpleIcon, WifiHighIcon, MusicNotesIcon, CurrencyDollarIcon, BookOpenIcon, UsersThreeIcon, CheckCircleIcon, XCircleIcon, WarningCircleIcon, HardDriveIcon, ArrowSquareOutIcon, ArrowCounterClockwiseIcon } from '@phosphor-icons/react'
 import { useAuth } from '../contexts/AuthContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useFinanzas } from '../contexts/FinanzasContext'
 import { useRecursos } from '../contexts/RecursosContext'
-import { testConexion, gasBackupCompleto, testDrive } from '../services/googleAppsScript'
+import { testConexion, gasBackupCompleto, testDrive, gasGetAll } from '../services/googleAppsScript'
 import Alert from '../components/ui/Alert'
 
 function EstadoBadge({ estado }) {
@@ -51,8 +51,10 @@ export default function Ajustes() {
   const { ingresos, pagosCuota } = useFinanzas()
   const { recursos } = useRecursos()
 
+  const fileInputRef = useRef(null)
   const [alerta, setAlerta] = useState(null)
   const [backupLoading, setBackupLoading] = useState(false)
+  const [restoreLoading, setRestoreLoading] = useState(false)
   const [testLoading, setTestLoading] = useState(false)
   const [driveLoading, setDriveLoading] = useState(false)
   const [conexion, setConexion] = useState(null)  // null | 'ok' | 'error'
@@ -93,6 +95,94 @@ export default function Ajustes() {
       mostrarAlerta('error', `Drive sin permiso: ${res.error}. Ejecuta testDrive() manualmente en Apps Script para autorizar.`)
     }
     setDriveLoading(false)
+  }
+
+  const handleRestaurar = async () => {
+    setRestoreLoading(true)
+    try {
+      // Pares: [entidad en Sheet, clave localStorage]
+      const mapa = [
+        { entidad: 'usuarios',    claves: ['ferreapp_usuarios', 'banda_usuarios'] },
+        { entidad: 'ingresos',    claves: ['ferreapp_ingresos'] },
+        { entidad: 'pagosCuota',  claves: ['ferreapp_pagosCuota'] },
+        { entidad: 'recursos',    claves: ['ferreapp_recursos', 'banda_recursos'] },
+      ]
+
+      let total = 0
+      const errores = []
+
+      for (const { entidad, claves } of mapa) {
+        try {
+          const res = await gasGetAll(entidad)
+          if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+            const json = JSON.stringify(res.data)
+            claves.forEach(clave => localStorage.setItem(clave, json))
+            total += res.data.length
+          }
+        } catch {
+          errores.push(entidad)
+        }
+      }
+
+      if (total > 0) {
+        mostrarAlerta('success', `Restaurados ${total} registros. Recargando...`)
+        setTimeout(() => window.location.reload(), 1500)
+      } else {
+        mostrarAlerta('error', `No se encontraron datos en el Sheet.${errores.length ? ' Errores en: ' + errores.join(', ') : ''}`)
+      }
+    } catch (e) {
+      mostrarAlerta('error', `Error al restaurar: ${e.message}`)
+    }
+    setRestoreLoading(false)
+  }
+
+  const handleImportarJSON = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result)
+        let total = 0
+
+        if (Array.isArray(data.musicos) && data.musicos.length) {
+          localStorage.setItem('banda_usuarios', JSON.stringify(data.musicos))
+          localStorage.setItem('ferreapp_usuarios', JSON.stringify(data.musicos))
+          total += data.musicos.length
+        }
+        if (Array.isArray(data.ingresos)) {
+          localStorage.setItem('ferreapp_ingresos', JSON.stringify(data.ingresos))
+          total += data.ingresos.length
+        }
+        if (Array.isArray(data.pagosCuota)) {
+          localStorage.setItem('ferreapp_pagosCuota', JSON.stringify(data.pagosCuota))
+          total += data.pagosCuota.length
+        }
+        if (Array.isArray(data.recursos) && data.recursos.length) {
+          localStorage.setItem('banda_recursos', JSON.stringify(data.recursos))
+          localStorage.setItem('ferreapp_recursos', JSON.stringify(data.recursos))
+          total += data.recursos.length
+        }
+
+        mostrarAlerta('info', `Datos cargados (${total} registros). Sincronizando con Google Sheets...`)
+
+        // Sobreescribir el Sheet completo con los datos del JSON
+        await gasBackupCompleto({
+          usuarios:   data.musicos  || [],
+          ingresos:   data.ingresos || [],
+          pagosCuota: data.pagosCuota || [],
+          recursos:   (data.recursos || []).map(r => ({ ...r, archivo_base64: undefined })),
+          fecha:      new Date().toISOString(),
+        })
+
+        mostrarAlerta('success', `Restauración completa: ${total} registros en app y Sheet. Recargando...`)
+        setTimeout(() => window.location.reload(), 2000)
+      } catch (err) {
+        mostrarAlerta('error', `Error: ${err.message || 'Archivo JSON no válido'}`)
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
   }
 
   const handleBackup = async () => {
@@ -223,6 +313,21 @@ export default function Ajustes() {
               <DownloadSimpleIcon size={16} />
               Exportar JSON local
             </button>
+            <button onClick={handleRestaurar} disabled={restoreLoading} className="btn-secondary">
+              <ArrowCounterClockwiseIcon size={16} />
+              {restoreLoading ? 'Restaurando...' : 'Restaurar desde Sheet'}
+            </button>
+            <button onClick={() => fileInputRef.current?.click()} className="btn-secondary">
+              <DownloadSimpleIcon size={16} />
+              Importar JSON
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={handleImportarJSON}
+            />
           </div>
           <p className="mt-3 text-xs text-gray-400">
             El backup exporta músicos, ingresos, abonos y recursos (sin archivos — esos quedan en Drive).

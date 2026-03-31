@@ -65,7 +65,7 @@ function FormNueva({ onClose }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50 animate-fade-in">
+    <form onSubmit={handleSubmit} className="border border-gray-200 rounded-xl p-4 space-y-3 bg-white shadow-md animate-fade-in">
       <p className="text-sm font-semibold text-gray-700">Nueva notificación</p>
 
       <div>

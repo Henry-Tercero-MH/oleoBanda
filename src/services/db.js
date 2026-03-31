@@ -82,18 +82,22 @@ function lsSet(entity, data) {
 
 // ── Operaciones CRUD ─────────────────────────────────────────
 async function getAll(entity) {
+  const local = lsGet(entity)
   if (_online) {
     try {
       const res = await gasGetAll(entity)
-      if (res.ok && Array.isArray(res.data)) {
-        lsSet(entity, res.data)
-        return res.data
+      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+        // Solo sobreescribir si el Sheet tiene MÁS datos que el local
+        if (res.data.length >= local.length) {
+          lsSet(entity, res.data)
+          return res.data
+        }
       }
     } catch {
       // caída silenciosa: servir desde caché
     }
   }
-  return lsGet(entity)
+  return local
 }
 
 async function insert(entity, data) {
