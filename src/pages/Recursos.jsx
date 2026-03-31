@@ -223,7 +223,7 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
   return (
     <>
       <div className="card hover:shadow-lg transition-all group">
-        {/* Previa imagen */}
+        {/* Previa imagen o video */}
         {recurso.tipo === 'imagen' && recurso.archivo_base64 && (
           <div className="mb-3 -mt-1 -mx-1 rounded-lg overflow-hidden h-32 bg-gray-100 cursor-pointer"
             onClick={abrirRecurso}>
@@ -231,6 +231,23 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           </div>
         )}
+        {recurso.tipo === 'video' && recurso.url_video && (
+          <div className="mb-3 -mt-1 -mx-1 rounded-lg overflow-hidden h-32 bg-gray-100 flex items-center justify-center cursor-pointer"
+            onClick={abrirRecurso}>
+            {recurso.url_video.includes('youtube.com') || recurso.url_video.includes('youtu.be') ? (
+              <img
+                src={getYoutubeThumbnail(recurso.url_video)}
+                alt="Miniatura video"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                style={{ minHeight: '100px', background: '#000' }}
+              />
+            ) : (
+              <video src={recurso.url_video} className="w-full h-full object-cover" style={{ minHeight: '100px', background: '#000' }} muted preload="metadata" />
+            )}
+
+          </div>
+        )}
+
 
         <div className="flex items-start gap-3">
           <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${COLOR_TIPO[recurso.tipo] || 'bg-gray-100 text-gray-500'}`}>
