@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   HouseIcon, UsersThreeIcon, MusicNotesIcon, CurrencyDollarIcon,
-  GearSixIcon, XIcon, SignOutIcon,
+  GearSixIcon, XIcon, SignOutIcon, PlaylistIcon,
 } from '@phosphor-icons/react'
 import { useAuth, ROLES } from '../../contexts/AuthContext'
 
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { separator: true, label: 'BANDA' },
   { to: '/musicos',  label: 'Músicos',    icon: UsersThreeIcon },
   { to: '/recursos', label: 'Recursos',   icon: MusicNotesIcon },
+  { to: '/listas',   label: 'Listas',     icon: PlaylistIcon },
   { separator: true, label: 'ADMINISTRACIÓN' },
   { to: '/finanzas', label: 'Finanzas',   icon: CurrencyDollarIcon },
   { separator: true, label: 'SISTEMA' },

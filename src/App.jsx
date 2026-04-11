@@ -3,6 +3,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { MusicosProvider } from './contexts/MusicosContext'
 import { FinanzasProvider } from './contexts/FinanzasContext'
 import { RecursosProvider } from './contexts/RecursosContext'
+import { ListasProvider } from './contexts/ListasContext'
 import { NotificacionesProvider } from './contexts/NotificacionesContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import Layout from './components/layout/Layout'
@@ -12,6 +13,7 @@ import Musicos from './pages/Musicos'
 import Recursos from './pages/Recursos'
 import Finanzas from './pages/Finanzas'
 import Ajustes from './pages/Ajustes'
+import Listas from './pages/Listas'
 
 export default function App() {
   return (
@@ -20,6 +22,7 @@ export default function App() {
         <MusicosProvider>
           <FinanzasProvider>
             <RecursosProvider>
+              <ListasProvider>
               <NotificacionesProvider>
               <Routes>
                 {/* Pública */}
@@ -30,6 +33,7 @@ export default function App() {
                   <Route path="/"         element={<Dashboard />} />
                   <Route path="/musicos"  element={<Musicos />} />
                   <Route path="/recursos" element={<Recursos />} />
+                  <Route path="/listas"   element={<Listas />} />
                   <Route path="/finanzas" element={<Finanzas />} />
                   <Route path="/ajustes"  element={<Ajustes />} />
                 </Route>
@@ -38,6 +42,7 @@ export default function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
               </NotificacionesProvider>
+              </ListasProvider>
             </RecursosProvider>
           </FinanzasProvider>
         </MusicosProvider>

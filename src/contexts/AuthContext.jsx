@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { shortId } from '../utils/formatters'
-import { db } from '../services/db'
 import { sha256 } from '../services/googleAppsScript'
 
 export const AuthContext = createContext(null)
@@ -10,11 +9,11 @@ export const AuthContext = createContext(null)
 export const ROLES = {
   director: {
     label: 'Director',
-    rutas: ['/', '/musicos', '/recursos', '/finanzas', '/ajustes'],
+    rutas: ['/', '/musicos', '/recursos', '/listas', '/finanzas', '/ajustes'],
   },
   musico: {
     label: 'Músico',
-    rutas: ['/', '/musicos', '/recursos', '/finanzas'],
+    rutas: ['/', '/musicos', '/recursos', '/listas', '/finanzas'],
   },
 }
 
@@ -25,10 +24,6 @@ export function AuthProvider({ children }) {
     try { return JSON.parse(localStorage.getItem('banda_usuarios') || 'null') || USUARIOS_DEFAULT } catch { return USUARIOS_DEFAULT }
   })
   const [sesion, setSesion] = useLocalStorage('banda_sesion', null)
-
-  useEffect(() => {
-    db.getAll('usuarios').then(data => { if (data.length) setUsuarios(data) })
-  }, [])
 
   // Persistir usuarios en localStorage con clave nueva
   useEffect(() => {
@@ -71,7 +66,6 @@ export function AuthProvider({ children }) {
       creado_en: new Date().toISOString(),
     }
     setUsuarios(prev => [...prev, nuevo])
-    await db.insert('usuarios', nuevo)
     return { ok: true }
   }, [usuarios])
 
@@ -84,13 +78,11 @@ export function AuthProvider({ children }) {
     setUsuarios(prev => prev.map(u => u.id === id ? { ...u, ...cambios } : u))
     // Actualizar sesión si es el usuario actual
     setSesion(prev => prev?.id === id ? { ...prev, ...cambios } : prev)
-    await db.update('usuarios', id, cambios)
   }, [setSesion])
 
   const eliminarUsuario = useCallback(async (id) => {
     if (id === 'usr-director') return { ok: false, error: 'No puedes eliminar al director principal' }
     setUsuarios(prev => prev.map(u => u.id === id ? { ...u, activo: false } : u))
-    await db.remove('usuarios', id)
     return { ok: true }
   }, [])
 

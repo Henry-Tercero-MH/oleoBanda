@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react'
-import { PlusIcon, XIcon, TrashIcon, ArrowSquareOutIcon, FileTextIcon, ImageIcon, VideoIcon, MusicNotesIcon, UploadSimpleIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
+import { PlusIcon, XIcon, TrashIcon, ArrowSquareOutIcon, FileTextIcon, ImageIcon, VideoIcon, MusicNotesIcon, UploadSimpleIcon, MagnifyingGlassIcon, PlaylistIcon } from '@phosphor-icons/react'
 import { useRecursos, TIPOS_RECURSO } from '../contexts/RecursosContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
-
+import { useListas } from '../contexts/ListasContext'
 import { formatDate } from '../utils/formatters'
 
 // Utilidad para obtener la miniatura de YouTube
@@ -215,10 +215,104 @@ function getYoutubeEmbedUrl(url) {
   return videoId ? `https://www.youtube.com/embed/${videoId}` : url
 }
 
+// ── Modal agregar video a lista ────────────────────────────────────────────
+function ModalAgregarALista({ recurso, onClose }) {
+  const { listas, crearLista, agregarVideoALista, listasDeVideo } = useListas()
+  const { esDirector } = useAuth()
+  const [nuevaNombre, setNuevaNombre] = useState('')
+  const [creando, setCreando] = useState(false)
+  const [error, setError] = useState('')
+
+  const listasConVideo = listasDeVideo(recurso.id)
+
+  const handleAgregar = (listaId) => {
+    agregarVideoALista(listaId, recurso.id)
+  }
+
+  const handleCrearYAgregar = () => {
+    if (!nuevaNombre.trim()) { setError('Escribe un nombre'); return }
+    const id = crearLista({ nombre: nuevaNombre })
+    agregarVideoALista(id, recurso.id)
+    setNuevaNombre('')
+    setCreando(false)
+    setError('')
+  }
+
+  const yaEsta = (listaId) => listasConVideo.some(l => l.id === listaId)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl animate-fade-in">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Agregar a lista</h2>
+            <p className="text-xs text-gray-400 truncate max-w-[200px]">{recurso.titulo}</p>
+          </div>
+          <button onClick={onClose} className="btn-icon btn-ghost text-gray-400"><XIcon size={18} /></button>
+        </div>
+
+        <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
+          {listas.length === 0 && !creando && (
+            <p className="text-sm text-gray-400 text-center py-2">No hay listas. Crea una nueva.</p>
+          )}
+
+          {listas.map(lista => (
+            <div key={lista.id} className="flex items-center justify-between gap-2 p-2 rounded-xl hover:bg-gray-50">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-lg">🎵</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{lista.nombre}</p>
+                  <p className="text-xs text-gray-400">{lista.video_ids.length} video{lista.video_ids.length !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+              {yaEsta(lista.id) ? (
+                <span className="text-xs text-green-600 font-medium flex-shrink-0">✓ Agregado</span>
+              ) : (
+                <button onClick={() => handleAgregar(lista.id)}
+                  className="btn-primary btn-sm flex-shrink-0">
+                  Agregar
+                </button>
+              )}
+            </div>
+          ))}
+
+          {/* Crear nueva lista */}
+          {esDirector && (
+            creando ? (
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-600">Nueva lista</p>
+                {error && <p className="text-xs text-red-500">{error}</p>}
+                <input className="input" autoFocus value={nuevaNombre}
+                  onChange={e => setNuevaNombre(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleCrearYAgregar()}
+                  placeholder="Nombre de la canción..." />
+                <div className="flex gap-2">
+                  <button onClick={() => { setCreando(false); setError('') }} className="btn-secondary btn-sm flex-1">Cancelar</button>
+                  <button onClick={handleCrearYAgregar} className="btn-primary btn-sm flex-1">Crear y agregar</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setCreando(true)}
+                className="w-full flex items-center gap-2 justify-center p-2 rounded-xl border-2 border-dashed border-gray-200 text-sm text-gray-500 hover:border-primary-300 hover:text-primary-600 transition-all">
+                <PlusIcon size={16} /> Crear nueva lista
+              </button>
+            )
+          )}
+        </div>
+
+        <div className="p-4 border-t border-gray-100">
+          <button onClick={onClose} className="btn-secondary w-full">Listo</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Tarjeta de recurso ─────────────────────────────────────────────────────
 function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
   const [verImagen, setVerImagen] = useState(false)
   const [verVideo, setVerVideo] = useState(false)
+  const [modalLista, setModalLista] = useState(false)
   const musico = musicos.find(m => m.id === recurso.musico_id)
 
   const abrirRecurso = () => {
@@ -292,6 +386,13 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
             <ArrowSquareOutIcon size={13} />
             {recurso.tipo === 'video' ? 'Ver video' : recurso.tipo === 'imagen' ? 'Ver imagen' : 'Descargar PDF'}
           </button>
+          {recurso.tipo === 'video' && esDirector && (
+            <button onClick={() => setModalLista(true)}
+              className="btn-icon btn-ghost text-gray-400 hover:text-primary-500 btn-sm"
+              title="Agregar a lista">
+              <PlaylistIcon size={16} />
+            </button>
+          )}
           {esDirector && (
             <button onClick={() => onDelete(recurso)}
               className="btn-icon btn-ghost text-gray-400 hover:text-red-500 btn-sm">
@@ -299,6 +400,10 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
             </button>
           )}
         </div>
+
+        {modalLista && (
+          <ModalAgregarALista recurso={recurso} onClose={() => setModalLista(false)} />
+        )}
             {/* Lightbox video */}
             {verVideo && recurso.tipo === 'video' && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-8 bg-black/80 backdrop-blur-sm"
