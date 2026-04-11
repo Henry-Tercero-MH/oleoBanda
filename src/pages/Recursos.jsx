@@ -322,24 +322,33 @@ function ModalAgregarALista({ recurso, onClose }) {
 
 // ── Tarjeta de recurso ─────────────────────────────────────────────────────
 function CardRecurso({ recurso, onDelete, esDirector, musicos, listaColorMap }) {
-  const [verImagen, setVerImagen] = useState(false)
-  const [verVideo, setVerVideo] = useState(false)
-  const [modalLista, setModalLista] = useState(false)
+  const [verImagen, setVerImagen]       = useState(false)
+  const [verVideo, setVerVideo]         = useState(false)
+  const [verPdf, setVerPdf]             = useState(false)
+  const [modalLista, setModalLista]     = useState(false)
   const musico = musicos.find(m => m.id === recurso.musico_id)
 
-  // Listas a las que pertenece este video
   const listasDelVideo = listaColorMap.filter(l => l.video_ids.includes(recurso.id))
+
+  // URL de imagen: Drive tiene prioridad sobre base64
+  const imagenSrc = recurso.drive_url
+    ? `https://drive.google.com/uc?export=view&id=${recurso.drive_file_id}`
+    : recurso.archivo_base64 || null
+
+  // URL de PDF para visor
+  const pdfSrc = recurso.drive_preview || (recurso.archivo_base64 ? recurso.archivo_base64 : null)
 
   const abrirRecurso = () => {
     if (recurso.tipo === 'video') {
       setVerVideo(true)
     } else if (recurso.tipo === 'imagen') {
       setVerImagen(true)
-    } else if (recurso.tipo === 'partitura' && recurso.archivo_base64) {
-      const link = document.createElement('a')
-      link.href = recurso.archivo_base64
-      link.download = recurso.archivo_nombre || 'partitura.pdf'
-      link.click()
+    } else if (recurso.tipo === 'partitura') {
+      if (recurso.drive_preview) {
+        setVerPdf(true)
+      } else if (recurso.archivo_base64) {
+        setVerPdf(true)
+      }
     }
   }
 
@@ -347,11 +356,12 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos, listaColorMap }) 
     <>
       <div className="card hover:shadow-lg transition-all group">
         {/* Previa imagen o video */}
-        {recurso.tipo === 'imagen' && recurso.archivo_base64 && (
+        {recurso.tipo === 'imagen' && imagenSrc && (
           <div className="mb-3 -mt-1 -mx-1 rounded-lg overflow-hidden h-32 bg-gray-100 cursor-pointer"
             onClick={abrirRecurso}>
-            <img src={recurso.archivo_base64} alt={recurso.titulo}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            <img src={imagenSrc} alt={recurso.titulo}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={e => e.target.style.display='none'} />
           </div>
         )}
         {recurso.tipo === 'video' && recurso.url_video && (
@@ -410,7 +420,7 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos, listaColorMap }) 
           <button onClick={abrirRecurso}
             className="btn-secondary btn-sm flex-1">
             <ArrowSquareOutIcon size={13} />
-            {recurso.tipo === 'video' ? 'Ver video' : recurso.tipo === 'imagen' ? 'Ver imagen' : 'Descargar PDF'}
+            {recurso.tipo === 'video' ? 'Ver video' : recurso.tipo === 'imagen' ? 'Ver imagen' : 'Ver PDF'}
           </button>
           {recurso.tipo === 'video' && esDirector && (
             <button onClick={() => setModalLista(true)}
@@ -455,20 +465,43 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos, listaColorMap }) 
               </div>
             )}
 
-      // Utilidad para obtener el embed de YouTube
       </div>
 
       {/* Lightbox imagen */}
-      {verImagen && (
+      {verImagen && imagenSrc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
           onClick={() => setVerImagen(false)}>
           <div className="relative max-w-4xl max-h-full">
-            <img src={recurso.archivo_base64} alt={recurso.titulo}
+            <img src={imagenSrc} alt={recurso.titulo}
               className="max-w-full max-h-[80vh] rounded-xl shadow-2xl object-contain" />
             <button onClick={() => setVerImagen(false)}
               className="absolute -top-4 -right-4 h-8 w-8 rounded-full bg-white text-gray-700 flex items-center justify-center shadow-lg">
               <XIcon size={16} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox PDF */}
+      {verPdf && pdfSrc && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm">
+          <div className="flex items-center justify-between px-4 py-3 bg-gray-900">
+            <p className="text-white text-sm font-medium truncate">{recurso.titulo}</p>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {recurso.drive_download && (
+                <a href={recurso.drive_download} target="_blank" rel="noreferrer"
+                  className="text-xs text-primary-300 hover:text-primary-200 flex items-center gap-1">
+                  <ArrowSquareOutIcon size={14} /> Descargar
+                </a>
+              )}
+              <button onClick={() => setVerPdf(false)}
+                className="h-8 w-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20">
+                <XIcon size={16} />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <iframe src={pdfSrc} className="w-full h-full border-0" title={recurso.titulo} />
           </div>
         </div>
       )}

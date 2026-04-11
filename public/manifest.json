@@ -1,20 +1,23 @@
 {
-  "name": "OLEO",
+  "name": "Óleo de Alegría",
   "short_name": "OLEO",
   "description": "Sistema de gestión para banda Óleo de Alegría",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#1d4285",
+  "theme_color": "#7c3aed",
   "orientation": "any",
   "lang": "es",
   "icons": [
-    { "src": "/icons/logo-esfuerzo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/logo-esfuerzo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/icons/icon-192.png",  "sizes": "192x192", "type": "image/png",  "purpose": "any" },
+    { "src": "/icons/icon-192.png",  "sizes": "192x192", "type": "image/png",  "purpose": "maskable" },
+    { "src": "/icons/logoOleo.jpeg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" },
+    { "src": "/icons/logoOleo.jpeg", "sizes": "512x512", "type": "image/jpeg", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Nueva Venta", "url": "/ventas/nueva", "description": "Registrar una nueva venta" },
-    { "name": "Productos",   "url": "/productos",    "description": "Ver catálogo de productos" },
-    { "name": "Pedidos",     "url": "/pedidos",      "description": "Ver pedidos pendientes" }
+    { "name": "Dashboard", "url": "/",         "description": "Ver resumen general" },
+    { "name": "Músicos",   "url": "/musicos",   "description": "Ver músicos de la banda" },
+    { "name": "Gastos",    "url": "/gastos",    "description": "Ver gastos fijos" },
+    { "name": "Finanzas",  "url": "/finanzas",  "description": "Ver finanzas" }
   ]
 }
