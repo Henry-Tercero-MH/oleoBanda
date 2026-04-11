@@ -39,18 +39,23 @@ export function RecursosProvider({ children }) {
   const [recursos, setRecursos] = useState([])
   const [loading, setLoading]   = useState(true)
 
-  // Cargar desde localStorage al inicio (contiene base64 y/o URLs de Drive)
+  // Cargar desde localStorage primero (para no mostrar pantalla vacía)
+  // luego sincronizar con Sheet como fuente de verdad
   useEffect(() => {
     try {
       const local = JSON.parse(localStorage.getItem('banda_recursos') || '[]')
         .filter(r => r.activo !== false)
-      if (local.length) { setRecursos(local); setLoading(false); return }
+      if (local.length) setRecursos(local)
     } catch { /* silent */ }
 
+    // Siempre consultar el Sheet — es la fuente de verdad entre dispositivos
     db.getAll('recursos').then(data => {
-      setRecursos(data.filter(r => r.activo !== false))
+      if (!data?.length) { setLoading(false); return }
+      const activos = data.filter(r => r.activo !== false)
+      localStorage.setItem('banda_recursos', JSON.stringify(activos))
+      setRecursos(activos)
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
   }, [])
 
   const _guardarLocal = (lista) => {
