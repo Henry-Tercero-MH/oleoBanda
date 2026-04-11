@@ -31,7 +31,7 @@ function serializarParaSheet(lista) {
 export function ListasProvider({ children }) {
   const [listas, setListas] = useState(() => cargarListas())
 
-  // Al montar: si hay datos en Sheet, fusionar con local
+  // Al montar: cargar desde Sheet y usar como fuente de verdad
   useEffect(() => {
     db.getAll('listas').then(data => {
       if (!data?.length) return
@@ -39,18 +39,12 @@ export function ListasProvider({ children }) {
         ...l,
         video_ids: typeof l.video_ids === 'string'
           ? (() => { try { return JSON.parse(l.video_ids) } catch { return [] } })()
-          : (l.video_ids || []),
+          : (Array.isArray(l.video_ids) ? l.video_ids : []),
         ensayo: l.ensayo === true || l.ensayo === 'true',
       }))
-      // Fusionar: prioridad al Sheet si tiene más datos
-      setListas(prev => {
-        const merged = [...prev]
-        remotas.forEach(r => {
-          if (!merged.find(l => l.id === r.id)) merged.push(r)
-        })
-        guardarListas(merged)
-        return merged
-      })
+      // El Sheet es la fuente de verdad — sobreescribe local completamente
+      guardarListas(remotas)
+      setListas(remotas)
     })
   }, [])
 
@@ -96,12 +90,13 @@ export function ListasProvider({ children }) {
 
   /** Agrega un video a una lista (evita duplicados) */
   const agregarVideoALista = useCallback((listaId, videoId) => {
-    _set(prev => {
+    setListas(prev => {
       const next = prev.map(l =>
         l.id === listaId
           ? { ...l, video_ids: l.video_ids.includes(videoId) ? l.video_ids : [...l.video_ids, videoId] }
           : l
       )
+      guardarListas(next)
       const lista = next.find(l => l.id === listaId)
       if (lista) db.update('listas', listaId, { video_ids: JSON.stringify(lista.video_ids) })
       return next
@@ -110,12 +105,13 @@ export function ListasProvider({ children }) {
 
   /** Quita un video de una lista */
   const quitarVideoDeList = useCallback((listaId, videoId) => {
-    _set(prev => {
+    setListas(prev => {
       const next = prev.map(l =>
         l.id === listaId
           ? { ...l, video_ids: l.video_ids.filter(id => id !== videoId) }
           : l
       )
+      guardarListas(next)
       const lista = next.find(l => l.id === listaId)
       if (lista) db.update('listas', listaId, { video_ids: JSON.stringify(lista.video_ids) })
       return next
@@ -129,13 +125,14 @@ export function ListasProvider({ children }) {
 
   /** Marca/desmarca una lista como la del próximo ensayo */
   const marcarEnsayo = useCallback((id) => {
-    _set(prev => {
+    setListas(prev => {
       const next = prev.map(l =>
         l.id === id
           ? { ...l, ensayo: !l.ensayo }
           : { ...l, ensayo: false }
       )
-      // Sincronizar todos los cambios de ensayo al Sheet
+      guardarListas(next)
+      // Sincronizar al Sheet fuera del setter pero dentro del callback
       next.forEach(l => db.update('listas', l.id, { ensayo: l.ensayo }))
       return next
     })
