@@ -10,6 +10,7 @@
  */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { db } from '../services/db'
+import { gasUpdate } from '../services/googleAppsScript'
 import { shortId } from '../utils/formatters'
 
 const GastosContext = createContext(null)
@@ -111,8 +112,8 @@ export function GastosProvider({ children }) {
       lsSet(LS_GASTOS, next)
       return next
     })
-    // db.update se ejecuta después del setState para tener nuevosExentos
-    setTimeout(() => db.update('gastos', gastoId, { exentos: nuevosExentos }), 0)
+    // gasUpdate directo para asegurar sync al Sheet con la clave correcta
+    setTimeout(() => gasUpdate('gastos', gastoId, { exentos: nuevosExentos }).catch(() => {}), 0)
   }, [])
 
   const eliminarGasto = useCallback(async (id) => {
