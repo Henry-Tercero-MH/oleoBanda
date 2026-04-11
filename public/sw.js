@@ -14,15 +14,27 @@ self.addEventListener('activate', e => {
 })
 
 self.addEventListener('fetch', e => {
+  // Solo interceptar GET de mismo origen o assets estáticos
   if (e.request.method !== 'GET') return
+  const url = new URL(e.request.url)
+  // No interceptar peticiones a APIs externas (Apps Script, Drive, etc.)
+  if (url.origin !== self.location.origin) return
+
   e.respondWith(
     fetch(e.request)
       .then(res => {
-        const clone = res.clone()
-        caches.open(CACHE).then(c => c.put(e.request, clone))
+        // Solo cachear respuestas válidas
+        if (res && res.status === 200 && res.type !== 'opaque') {
+          const clone = res.clone()
+          caches.open(CACHE).then(c => c.put(e.request, clone))
+        }
         return res
       })
-      .catch(() => caches.match(e.request))
+      .catch(() =>
+        caches.match(e.request).then(cached =>
+          cached || new Response('Sin conexión', { status: 503, statusText: 'Service Unavailable' })
+        )
+      )
   )
 })
 

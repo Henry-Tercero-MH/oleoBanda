@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   PlusIcon, XIcon, TrashIcon, PencilSimpleIcon,
   PlayCircleIcon, MusicNotesSimpleIcon, FloppyDiskIcon,
-  CaretDownIcon, CaretUpIcon,
+  CaretDownIcon, CaretUpIcon, CalendarCheckIcon,
 } from '@phosphor-icons/react'
 import { useListas } from '../contexts/ListasContext'
 import { useRecursos } from '../contexts/RecursosContext'
@@ -98,7 +98,7 @@ function LightboxVideo({ recurso, onClose }) {
         <iframe
           src={getYoutubeEmbedUrl(recurso.url_video)}
           title={recurso.titulo}
-          frameBorder="0"
+          style={{ border: 'none' }}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           className="rounded-xl w-full h-[50vw] sm:h-[450px] max-h-[70vh] bg-black"
@@ -153,7 +153,7 @@ function CardVideo({ recurso, esDirector, onPlay, onQuitar }) {
 
 // ── Card de lista ─────────────────────────────────────────────────────────────
 function CardLista({ lista, recursos, esDirector, onEditar, onEliminar }) {
-  const { quitarVideoDeList } = useListas()
+  const { quitarVideoDeList, marcarEnsayo } = useListas()
   const [expandida, setExpandida] = useState(false)
   const [videoActivo, setVideoActivo] = useState(null)
   const [confirmDel, setConfirmDel] = useState(false)
@@ -162,14 +162,23 @@ function CardLista({ lista, recursos, esDirector, onEditar, onEliminar }) {
     .map(id => recursos.find(r => r.id === id))
     .filter(Boolean)
 
+  const esEnsayo = !!lista.ensayo
+
   return (
-    <div className="card">
+    <div className={`card border-2 transition-colors ${esEnsayo ? 'border-blue-400 bg-blue-50' : 'border-transparent'}`}>
       {/* Cabecera */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xl">🎵</span>
-            <h3 className="font-semibold text-gray-900 truncate">{lista.nombre}</h3>
+            <h3 className={`font-semibold truncate ${esEnsayo ? 'text-blue-800' : 'text-gray-900'}`}>
+              {lista.nombre}
+            </h3>
+            {esEnsayo && (
+              <span className="flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                <CalendarCheckIcon size={12} /> Próximo ensayo
+              </span>
+            )}
           </div>
           {lista.descripcion && (
             <p className="text-xs text-gray-400 mt-0.5 ml-7">{lista.descripcion}</p>
@@ -182,6 +191,12 @@ function CardLista({ lista, recursos, esDirector, onEditar, onEliminar }) {
         <div className="flex items-center gap-1 flex-shrink-0">
           {esDirector && (
             <>
+              <button
+                onClick={() => marcarEnsayo(lista.id)}
+                title={esEnsayo ? 'Quitar de ensayo' : 'Marcar para ensayo'}
+                className={`btn-icon btn-sm ${esEnsayo ? 'text-blue-500 hover:text-gray-400' : 'btn-ghost text-gray-400 hover:text-blue-500'}`}>
+                <CalendarCheckIcon size={16} />
+              </button>
               <button onClick={() => onEditar(lista)} className="btn-icon btn-ghost text-gray-400 btn-sm">
                 <PencilSimpleIcon size={15} />
               </button>
@@ -317,7 +332,7 @@ export default function Listas() {
         </div>
       ) : (
         <div className="space-y-4">
-          {listas.map(lista => (
+          {[...listas].sort((a, b) => (b.ensayo ? 1 : 0) - (a.ensayo ? 1 : 0)).map(lista => (
             <CardLista
               key={lista.id}
               lista={lista}

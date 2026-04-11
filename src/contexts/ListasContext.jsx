@@ -81,6 +81,15 @@ export function ListasProvider({ children }) {
     listas.filter(l => l.video_ids.includes(videoId))
   , [listas])
 
+  /** Marca/desmarca una lista como la del próximo ensayo */
+  const marcarEnsayo = useCallback((id) => {
+    _set(prev => prev.map(l =>
+      l.id === id
+        ? { ...l, ensayo: !l.ensayo }
+        : { ...l, ensayo: false }   // solo una lista activa a la vez
+    ))
+  }, [])
+
   return (
     <ListasContext.Provider value={{
       listas,
@@ -90,6 +99,7 @@ export function ListasProvider({ children }) {
       agregarVideoALista,
       quitarVideoDeList,
       listasDeVideo,
+      marcarEnsayo,
     }}>
       {children}
     </ListasContext.Provider>
