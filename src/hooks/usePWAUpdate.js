@@ -38,8 +38,13 @@ export function usePWAUpdate() {
   }, [])
 
   const applyUpdate = () => {
-    if (!waitingWorker) return
-    waitingWorker.postMessage({ type: 'SKIP_WAITING' })
+    if (waitingWorker) {
+      // Hay SW nuevo — activarlo, el controllerchange recargará la página
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' })
+    } else {
+      // No hay SW nuevo pero el usuario quiere sincronizar datos — recargar directo
+      window.location.reload()
+    }
   }
 
   return { updateAvailable: !!waitingWorker, applyUpdate }
