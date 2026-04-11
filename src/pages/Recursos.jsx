@@ -201,6 +201,18 @@ const COLOR_TIPO = {
   imagen:    'bg-green-100 text-green-600',
 }
 
+// Paleta de colores para listas (se asigna por índice)
+const LISTA_COLORES = [
+  { bg: 'bg-violet-100', text: 'text-violet-700', border: 'border-violet-300' },
+  { bg: 'bg-sky-100',    text: 'text-sky-700',    border: 'border-sky-300'    },
+  { bg: 'bg-emerald-100',text: 'text-emerald-700',border: 'border-emerald-300'},
+  { bg: 'bg-amber-100',  text: 'text-amber-700',  border: 'border-amber-300'  },
+  { bg: 'bg-rose-100',   text: 'text-rose-700',   border: 'border-rose-300'   },
+  { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-300' },
+  { bg: 'bg-teal-100',   text: 'text-teal-700',   border: 'border-teal-300'   },
+  { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300' },
+]
+
 
 function getYoutubeEmbedUrl(url) {
   // Soporta youtube.com/watch?v=... y youtu.be/...
@@ -309,11 +321,14 @@ function ModalAgregarALista({ recurso, onClose }) {
 }
 
 // ── Tarjeta de recurso ─────────────────────────────────────────────────────
-function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
+function CardRecurso({ recurso, onDelete, esDirector, musicos, listaColorMap }) {
   const [verImagen, setVerImagen] = useState(false)
   const [verVideo, setVerVideo] = useState(false)
   const [modalLista, setModalLista] = useState(false)
   const musico = musicos.find(m => m.id === recurso.musico_id)
+
+  // Listas a las que pertenece este video
+  const listasDelVideo = listaColorMap.filter(l => l.video_ids.includes(recurso.id))
 
   const abrirRecurso = () => {
     if (recurso.tipo === 'video') {
@@ -377,6 +392,17 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos }) {
               )}
               <span className="text-xs text-gray-400">{formatDate(recurso.creado_en)}</span>
             </div>
+            {/* Badges de listas */}
+            {listasDelVideo.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {listasDelVideo.map(l => (
+                  <span key={l.id}
+                    className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${l.color.bg} ${l.color.text} ${l.color.border}`}>
+                    🎵 {l.nombre}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -455,12 +481,19 @@ export default function Recursos() {
   const { recursos, eliminarRecurso, tiposRecurso } = useRecursos()
   const { musicos } = useMusicos()
   const { esDirector } = useAuth()
+  const { listas } = useListas()
 
   const [modal, setModal]         = useState(false)
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroMusico, setFiltroMusico] = useState('todos')
   const [busqueda, setBusqueda]   = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
+
+  // Mapa de listas con color asignado por índice
+  const listaColorMap = listas.map((l, i) => ({
+    ...l,
+    color: LISTA_COLORES[i % LISTA_COLORES.length],
+  }))
 
   const filtrados = recursos.filter(r => {
     if (filtroTipo !== 'todos' && r.tipo !== filtroTipo) return false
@@ -550,6 +583,7 @@ export default function Recursos() {
               musicos={musicos}
               esDirector={esDirector}
               onDelete={setConfirmDelete}
+              listaColorMap={listaColorMap}
             />
           ))}
         </div>
