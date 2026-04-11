@@ -29,47 +29,35 @@ export default function SyncStatusBar() {
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 text-sm select-none">
-      {/* Indicador de estado */}
+    <div className="flex items-center gap-1.5 px-2 py-1.5 text-sm select-none">
+      {/* Indicador de estado — siempre visible */}
       <span className="relative flex h-2.5 w-2.5 shrink-0">
-        {/* Pulso animado cuando hay pendientes o se está sincronizando */}
         {(pendingCount > 0 || syncing) && online && (
-          <span
-            className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${dotColor}`}
-          />
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${dotColor}`} />
         )}
         <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${dotColor}`} />
       </span>
 
-      {/* Texto de estado */}
-      <span className={`${!online ? 'text-red-600' : pendingCount > 0 ? 'text-yellow-700' : 'text-green-700'}`}>
+      {/* Texto — solo en md+ */}
+      <span className={`hidden md:inline text-xs ${!online ? 'text-red-600' : pendingCount > 0 ? 'text-yellow-700' : 'text-green-700'}`}>
         {syncing ? 'Sincronizando…' : message}
       </span>
 
-      {/* Botón de sincronizar manual */}
+      {/* Botón sync manual — solo en md+ */}
       {online && pendingCount > 0 && !syncing && (
         <button
           onClick={syncNow}
-          className="ml-1 px-2 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-800 hover:bg-yellow-200 active:bg-yellow-300 transition-colors border border-yellow-300"
+          className="hidden md:inline ml-1 px-2 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-800 hover:bg-yellow-200 active:bg-yellow-300 transition-colors border border-yellow-300"
         >
           Sincronizar
         </button>
       )}
 
-      {/* Spinner mientras sincroniza */}
+      {/* Spinner */}
       {syncing && (
-        <svg
-          className="animate-spin h-3.5 w-3.5 text-blue-500 ml-1"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
+        <svg className="animate-spin h-3.5 w-3.5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-          />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
       )}
     </div>
