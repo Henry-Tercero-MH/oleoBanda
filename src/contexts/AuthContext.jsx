@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { shortId } from '../utils/formatters'
-import { sha256 } from '../services/googleAppsScript'
+import { sha256, gasGetAll } from '../services/googleAppsScript'
 
 export const AuthContext = createContext(null)
 
@@ -25,10 +25,25 @@ export function AuthProvider({ children }) {
   })
   const [sesion, setSesion] = useLocalStorage('banda_sesion', null)
 
-  // Persistir usuarios en localStorage con clave nueva
+  // Persistir usuarios en localStorage
   useEffect(() => {
     localStorage.setItem('banda_usuarios', JSON.stringify(usuarios))
   }, [usuarios])
+
+  // Si localStorage está vacío, cargar desde Sheet como fallback
+  useEffect(() => {
+    const local = (() => {
+      try { return JSON.parse(localStorage.getItem('banda_usuarios') || '[]') } catch { return [] }
+    })()
+    if (local.length > 0) return  // ya hay datos locales, no consultar
+    gasGetAll('usuarios').then(res => {
+      if (res?.ok && Array.isArray(res.data) && res.data.length > 0) {
+        const activos = res.data.filter(u => u.activo !== false && u.activo !== 'false')
+        localStorage.setItem('banda_usuarios', JSON.stringify(activos))
+        setUsuarios(activos)
+      }
+    }).catch(() => {})
+  }, [])
 
   const login = useCallback(async (email, password) => {
     const hash = await sha256(password)
