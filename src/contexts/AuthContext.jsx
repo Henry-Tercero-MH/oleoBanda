@@ -93,6 +93,7 @@ export function AuthProvider({ children }) {
     setUsuarios(prev => prev.map(u => u.id === id ? { ...u, ...cambios } : u))
     // Actualizar sesión si es el usuario actual
     setSesion(prev => prev?.id === id ? { ...prev, ...cambios } : prev)
+    try { await gasUpdate('usuarios', id, cambios) } catch {}
   }, [setSesion])
 
   const eliminarUsuario = useCallback(async (id) => {

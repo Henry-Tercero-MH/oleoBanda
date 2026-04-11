@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { PlusIcon, PencilSimpleIcon, TrashIcon, XIcon, FloppyDiskIcon, MusicNotesIcon, EyeIcon, EyeSlashIcon, CreditCardIcon } from '@phosphor-icons/react'
+import { PlusIcon, PencilSimpleIcon, TrashIcon, XIcon, FloppyDiskIcon, MusicNotesIcon, EyeIcon, EyeSlashIcon, CreditCardIcon, ArrowsClockwiseIcon } from '@phosphor-icons/react'
 import { useMusicos, INSTRUMENTOS } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useGastos } from '../contexts/GastosContext'
+import { gasUpdate } from '../services/googleAppsScript'
 import { formatCurrency, formatDate } from '../utils/formatters'
 
 const ROLES_OPCIONES = [
@@ -339,6 +340,21 @@ export default function Musicos() {
   const [modalMusico, setModalMusico] = useState(null)  // null | 'nuevo' | {musico}
   const [modalDeuda, setModalDeuda]   = useState(null)  // null | {musico}
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [syncFotos, setSyncFotos] = useState('idle')  // idle | loading | done | error
+
+  const handleSyncFotos = async () => {
+    setSyncFotos('loading')
+    try {
+      for (const m of musicos.filter(m => m.foto_url)) {
+        await gasUpdate('usuarios', m.id, { foto_url: m.foto_url })
+      }
+      setSyncFotos('done')
+      setTimeout(() => setSyncFotos('idle'), 4000)
+    } catch {
+      setSyncFotos('error')
+      setTimeout(() => setSyncFotos('idle'), 4000)
+    }
+  }
 
   const handleSaveMusico = async (data) => {
     if (modalMusico === 'nuevo') return agregarMusico(data)
@@ -358,9 +374,23 @@ export default function Musicos() {
           <p className="page-subtitle">{musicos.length} miembro{musicos.length !== 1 ? 's' : ''} activo{musicos.length !== 1 ? 's' : ''}</p>
         </div>
         {esDirector && (
-          <button className="btn-primary" onClick={() => setModalMusico('nuevo')}>
-            <PlusIcon size={16} /> Agregar músico
-          </button>
+          <div className="flex gap-2">
+            <button
+              className={`btn-secondary text-xs ${syncFotos === 'done' ? 'text-green-600' : syncFotos === 'error' ? 'text-red-500' : ''}`}
+              onClick={handleSyncFotos}
+              disabled={syncFotos === 'loading'}
+              title="Enviar fotos de perfil al Sheet"
+            >
+              <ArrowsClockwiseIcon size={15} className={syncFotos === 'loading' ? 'animate-spin' : ''} />
+              {syncFotos === 'idle' && 'Sync fotos'}
+              {syncFotos === 'loading' && 'Enviando...'}
+              {syncFotos === 'done' && '✓ Listo'}
+              {syncFotos === 'error' && 'Error'}
+            </button>
+            <button className="btn-primary" onClick={() => setModalMusico('nuevo')}>
+              <PlusIcon size={16} /> Agregar músico
+            </button>
+          </div>
         )}
       </div>
 
