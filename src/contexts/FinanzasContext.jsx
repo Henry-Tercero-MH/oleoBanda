@@ -26,20 +26,39 @@ export const TIPOS_INGRESO = {
   ofrenda_toque: { label: 'Ofrenda por Toque', color: 'yellow', emoji: '🎵' },
 }
 
+const LS_ING  = 'banda_ingresos'
+const LS_PAG  = 'banda_pagosCuota'
+
+function lsGet(key) {
+  try { return JSON.parse(localStorage.getItem(key) || '[]') } catch { return [] }
+}
+function lsSet(key, data) {
+  localStorage.setItem(key, JSON.stringify(data))
+}
+
 export function FinanzasProvider({ children }) {
-  const [ingresos, setIngresos]       = useState([])
-  const [pagosCuota, setPagosCuota]   = useState([])
+  const [ingresos, setIngresos]       = useState(() => lsGet(LS_ING).filter(i => i.activo !== false))
+  const [pagosCuota, setPagosCuota]   = useState(() => lsGet(LS_PAG).filter(p => p.activo !== false))
   const [loading, setLoading]         = useState(true)
 
   useEffect(() => {
+    // Mostrar local inmediato, luego sincronizar con Sheet
     Promise.all([
       db.getAll('ingresos'),
       db.getAll('pagosCuota'),
     ]).then(([ing, pag]) => {
-      setIngresos(ing.filter(i => i.activo !== false))
-      setPagosCuota(pag.filter(p => p.activo !== false))
+      if (ing?.length) {
+        const activos = ing.filter(i => i.activo !== false && i.activo !== 'false')
+        lsSet(LS_ING, activos)
+        setIngresos(activos)
+      }
+      if (pag?.length) {
+        const activos = pag.filter(p => p.activo !== false && p.activo !== 'false')
+        lsSet(LS_PAG, activos)
+        setPagosCuota(activos)
+      }
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
   }, [])
 
   // ── Ingresos ──────────────────────────────────────────────────
@@ -52,13 +71,21 @@ export function FinanzasProvider({ children }) {
       activo: true,
       creado_en: new Date().toISOString(),
     }
-    setIngresos(prev => [nuevo, ...prev])
+    setIngresos(prev => {
+      const next = [nuevo, ...prev]
+      lsSet(LS_ING, next)
+      return next
+    })
     await db.insert('ingresos', nuevo)
     return nuevo
   }, [])
 
   const eliminarIngreso = useCallback(async (id) => {
-    setIngresos(prev => prev.filter(i => i.id !== id))
+    setIngresos(prev => {
+      const next = prev.filter(i => i.id !== id)
+      lsSet(LS_ING, next)
+      return next
+    })
     await db.remove('ingresos', id)
   }, [])
 
@@ -72,13 +99,21 @@ export function FinanzasProvider({ children }) {
       activo: true,
       creado_en: new Date().toISOString(),
     }
-    setPagosCuota(prev => [nuevo, ...prev])
+    setPagosCuota(prev => {
+      const next = [nuevo, ...prev]
+      lsSet(LS_PAG, next)
+      return next
+    })
     await db.insert('pagosCuota', nuevo)
     return nuevo
   }, [])
 
   const eliminarPagoCuota = useCallback(async (id) => {
-    setPagosCuota(prev => prev.filter(p => p.id !== id))
+    setPagosCuota(prev => {
+      const next = prev.filter(p => p.id !== id)
+      lsSet(LS_PAG, next)
+      return next
+    })
     await db.remove('pagosCuota', id)
   }, [])
 

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { shortId } from '../utils/formatters'
-import { sha256, gasGetAll } from '../services/googleAppsScript'
+import { sha256, gasGetAll, gasUpdate } from '../services/googleAppsScript'
 
 export const AuthContext = createContext(null)
 
@@ -9,11 +9,11 @@ export const AuthContext = createContext(null)
 export const ROLES = {
   director: {
     label: 'Director',
-    rutas: ['/', '/musicos', '/recursos', '/listas', '/finanzas', '/ajustes'],
+    rutas: ['/', '/musicos', '/recursos', '/listas', '/gastos', '/finanzas', '/ajustes'],
   },
   musico: {
     label: 'Músico',
-    rutas: ['/', '/musicos', '/recursos', '/listas', '/finanzas'],
+    rutas: ['/', '/musicos', '/recursos', '/listas', '/gastos', '/finanzas'],
   },
 }
 
@@ -98,6 +98,7 @@ export function AuthProvider({ children }) {
   const eliminarUsuario = useCallback(async (id) => {
     if (id === 'usr-director') return { ok: false, error: 'No puedes eliminar al director principal' }
     setUsuarios(prev => prev.map(u => u.id === id ? { ...u, activo: false } : u))
+    try { await gasUpdate('usuarios', id, { activo: false }) } catch {}
     return { ok: true }
   }, [])
 

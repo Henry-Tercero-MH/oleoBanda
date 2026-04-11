@@ -1,84 +1,10 @@
 import { useState } from 'react'
-import { PlusIcon, TrashIcon, XIcon, CurrencyDollarIcon, TrendUpIcon, TrendDownIcon, InfoIcon, PrinterIcon } from '@phosphor-icons/react'
-import { useFinanzas, TIPOS_INGRESO } from '../contexts/FinanzasContext'
+import { PlusIcon, TrashIcon, XIcon, CurrencyDollarIcon, TrendUpIcon, InfoIcon, CreditCardIcon, CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
+import { useFinanzas } from '../contexts/FinanzasContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useGastos } from '../contexts/GastosContext'
 import { formatCurrency, formatDate } from '../utils/formatters'
-
-// ── Modal de recibo (compatible móvil/PWA) ────────────────────────────────
-function ReciboModal({ pago, musico, pagadoTotal, deudaTotal, onClose }) {
-  const pendiente = Math.max(0, deudaTotal - pagadoTotal)
-  const num = pago.id.replace('pago-', '').toUpperCase()
-  const fechaStr = new Date(pago.fecha || pago.creado_en)
-    .toLocaleDateString('es-GT', { day: '2-digit', month: 'long', year: 'numeric' })
-
-  const handlePrint = () => window.print()
-
-  return (
-    <>
-      {/* Estilos de impresión: ocultar todo excepto #recibo-print */}
-      <style>{`
-        @media print {
-          body > * { display: none !important; }
-          #recibo-print { display: block !important; position: fixed; inset: 0; }
-          #recibo-print * { display: revert; }
-          @page { margin: 0; size: 80mm auto; }
-        }
-      `}</style>
-
-      {/* Overlay y modal visible en pantalla */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:hidden">
-        <div className="w-full max-w-xs bg-white rounded-2xl shadow-2xl animate-fade-in overflow-hidden">
-          {/* Botones top */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 print:hidden">
-            <span className="text-sm font-semibold text-gray-700">Recibo # {num}</span>
-            <div className="flex items-center gap-2">
-              <button onClick={handlePrint}
-                className="flex items-center gap-1.5 text-xs font-medium bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700">
-                <PrinterIcon size={13} /> Imprimir / PDF
-              </button>
-              <button onClick={onClose} className="btn-icon btn-ghost text-gray-400">
-                <XIcon size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* Contenido del recibo */}
-          <div id="recibo-print" className="p-5 font-mono text-xs space-y-1">
-            <p className="text-center text-base font-black tracking-widest">ÓLEO DE ALEGRÍA</p>
-            <p className="text-center text-[10px] text-gray-500">Salmos 45:7 — Banda Musical Cristiana</p>
-            <div className="border-t-2 border-black my-2" />
-            <p className="text-center font-bold uppercase tracking-wider">Recibo de Pago</p>
-            <p className="text-center text-[10px] text-gray-500"># {num}</p>
-            <div className="border-t border-dashed border-gray-400 my-2" />
-            <div className="flex justify-between"><span className="text-gray-500">Fecha:</span><span className="font-bold">{fechaStr}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Músico:</span><span className="font-bold">{musico.nombre}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Instrumento:</span><span className="font-bold">{musico.instrumento || '—'}</span></div>
-            {pago.descripcion && (
-              <div className="flex justify-between"><span className="text-gray-500">Concepto:</span><span className="font-bold text-right max-w-[55%]">{pago.descripcion}</span></div>
-            )}
-            <div className="border-t border-dashed border-gray-400 my-2" />
-            <p className="text-center text-3xl font-black my-2">Q {Number(pago.monto).toFixed(2)}</p>
-            <p className="text-center text-[10px] text-gray-500">Monto recibido</p>
-            <div className="border-t border-dashed border-gray-400 my-2" />
-            <div className="flex justify-between"><span className="text-gray-500">Deuda total:</span><span>Q {Number(deudaTotal).toFixed(2)}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Total abonado:</span><span>Q {Number(pagadoTotal).toFixed(2)}</span></div>
-            <div className="flex justify-between font-bold"><span>Saldo pendiente:</span><span>Q {Number(pendiente).toFixed(2)}</span></div>
-            <p className={`text-center text-[10px] font-bold mt-1 ${pendiente === 0 ? 'text-green-700' : 'text-red-600'}`}>
-              {pendiente === 0 ? '✓ DEUDA COMPLETAMENTE PAGADA' : 'Pendiente de pago'}
-            </p>
-            <div className="border-t border-dashed border-gray-400 my-2" />
-            <p className="text-[10px] text-gray-500">Firma del director:</p>
-            <div className="h-7 border-b border-gray-400 mb-1" />
-            <p className="text-center text-[9px] text-gray-400">
-              Óleo de Alegría · Generado el {new Date().toLocaleDateString('es-GT')}
-            </p>
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
 
 const TABS = ['Ingresos', 'Cuotas', 'Historial']
 
@@ -311,165 +237,186 @@ function TabIngresos({ onNuevo }) {
   )
 }
 
+// ── Subcomponente: fila de gasto fijo por músico ─────────────────────────────
+function FilaGastoMusico({ gasto, musicoId, numMusicos, esDirector }) {
+  const { pagadoPorMusico, abonosPorMusico, registrarAbono, eliminarAbono, cuotaDeMusico } = useGastos()
+  const [abierto, setAbierto] = useState(false)
+  const [form, setForm] = useState({ monto: '', fecha: new Date().toISOString().slice(0, 10), descripcion: '' })
+  const [loading, setLoading] = useState(false)
+
+  const cuotaMusico  = cuotaDeMusico(gasto, musicoId, numMusicos)
+  const pagadoM      = pagadoPorMusico(gasto.id, musicoId)
+  const pendM        = Math.max(0, cuotaMusico - pagadoM)
+  const pctM         = cuotaMusico > 0 ? Math.min(100, Math.round((pagadoM / cuotaMusico) * 100)) : 100
+  const listoM       = pendM === 0
+  const hoy          = new Date()
+  const limite       = gasto.fecha_limite ? new Date(gasto.fecha_limite) : null
+  const diasRest     = limite ? Math.ceil((limite - hoy) / (1000 * 60 * 60 * 24)) : null
+  const vencido      = diasRest !== null && diasRest < 0
+
+  const abonos = abonosPorMusico(gasto.id, musicoId)
+
+  const handleAbono = async (e) => {
+    e.preventDefault()
+    if (!form.monto || parseFloat(form.monto) <= 0) return
+    setLoading(true)
+    await registrarAbono({
+      gasto_id:    gasto.id,
+      musico_id:   musicoId,
+      monto:       parseFloat(form.monto),
+      fecha:       form.fecha,
+      descripcion: form.descripcion,
+    })
+    setLoading(false)
+    setForm(p => ({ ...p, monto: '', descripcion: '' }))
+  }
+
+  return (
+    <div className={`rounded-xl border p-3 transition-colors ${listoM ? 'border-green-200 bg-green-50' : vencido ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-gray-50'}`}>
+      <div className="flex items-center justify-between cursor-pointer" onClick={() => setAbierto(v => !v)}>
+        <div className="flex items-center gap-2 min-w-0">
+          <CreditCardIcon size={13} className={listoM ? 'text-green-500' : vencido ? 'text-red-500' : 'text-gray-400'} />
+          <span className="text-sm font-medium text-gray-800 truncate">{gasto.nombre}</span>
+          {listoM && <span className="text-xs text-green-600 font-semibold">✓</span>}
+          {vencido && !listoM && <span className="text-xs text-red-600 font-semibold">⚠ Vencido</span>}
+          {!listoM && !vencido && diasRest !== null && diasRest <= 7 && (
+            <span className="text-xs text-amber-600 font-semibold">⏰ {diasRest}d</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={`text-sm font-bold ${listoM ? 'text-green-600' : 'text-red-600'}`}>
+            {listoM ? 'Al día' : formatCurrency(pendM)}
+          </span>
+          {abierto ? <CaretUpIcon size={13} className="text-gray-400" /> : <CaretDownIcon size={13} className="text-gray-400" />}
+        </div>
+      </div>
+
+      {/* Barra de progreso */}
+      <div className="mt-2">
+        <div className="h-1.5 bg-white rounded-full overflow-hidden border border-gray-200">
+          <div className={`h-full rounded-full ${listoM ? 'bg-green-500' : 'bg-primary-500'}`}
+            style={{ width: `${pctM}%` }} />
+        </div>
+        <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+          <span>{formatCurrency(pagadoM)} pagado</span>
+          <span>Cuota: {formatCurrency(cuotaMusico)}</span>
+        </div>
+      </div>
+
+      {/* Detalle expandido */}
+      {abierto && (
+        <div className="mt-3 space-y-2 border-t border-gray-200 pt-3 animate-fade-in">
+          {/* Historial de abonos */}
+          {abonos.length > 0 && (
+            <div className="space-y-1">
+              {abonos.sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en)).map(a => (
+                <div key={a.id} className="flex items-center justify-between py-0.5">
+                  <div>
+                    <span className="text-xs font-medium text-gray-700">{formatCurrency(a.monto)}</span>
+                    <span className="text-xs text-gray-400 ml-2">{formatDate(a.fecha || a.creado_en)}</span>
+                    {a.descripcion && <span className="text-xs text-gray-400 ml-1">· {a.descripcion}</span>}
+                  </div>
+                  {esDirector && (
+                    <button onClick={() => eliminarAbono(a.id)}
+                      className="btn-icon btn-ghost text-gray-300 hover:text-red-500 btn-sm">
+                      <TrashIcon size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {abonos.length === 0 && <p className="text-xs text-gray-400">Sin abonos</p>}
+
+          {/* Formulario abono */}
+          {esDirector && !listoM && (
+            <form onSubmit={handleAbono} className="rounded-lg bg-primary-50 border border-primary-100 p-2 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label text-xs">Monto (Q)</label>
+                  <input className="input" type="number" min="0.01" step="0.01"
+                    value={form.monto}
+                    onChange={e => setForm(p => ({ ...p, monto: e.target.value }))}
+                    placeholder={formatCurrency(pendM)} />
+                </div>
+                <div>
+                  <label className="label text-xs">Fecha</label>
+                  <input className="input" type="date" value={form.fecha}
+                    onChange={e => setForm(p => ({ ...p, fecha: e.target.value }))} />
+                </div>
+                <div className="col-span-2">
+                  <input className="input" value={form.descripcion}
+                    onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))}
+                    placeholder="Descripción (opcional)..." />
+                </div>
+              </div>
+              <button type="submit" disabled={loading} className="btn-primary btn-sm w-full">
+                {loading ? 'Registrando...' : 'Registrar abono'}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Tab Cuotas ─────────────────────────────────────────────────────────────
 function TabCuotas() {
   const { musicos } = useMusicos()
-  const { pagadoPorMusico, registrarPagoCuota, eliminarPagoCuota, pagosDe } = useFinanzas()
-  const { esDirector, sesion } = useAuth()
+  const { gastos, pagadoPorMusico: pagadoGastoMusico, cuotaDeMusico } = useGastos()
+  const { esDirector } = useAuth()
 
   const [expandido, setExpandido] = useState(null)
-  const [formPago, setFormPago] = useState({ monto: '', fecha: new Date().toISOString().slice(0, 10), descripcion: '' })
-  const [recibo, setRecibo] = useState(null) // { pago, musico, pagadoTotal, deudaTotal }
-
-  const handleAbono = async (musicoId, pendiente) => {
-    if (!formPago.monto || parseFloat(formPago.monto) <= 0) return
-    await registrarPagoCuota({
-      musico_id:    musicoId,
-      monto:        Math.min(parseFloat(formPago.monto), pendiente),
-      fecha:        formPago.fecha,
-      descripcion:  formPago.descripcion,
-      registrado_por: sesion?.id,
-    })
-    setFormPago({ monto: '', fecha: new Date().toISOString().slice(0, 10), descripcion: '' })
-  }
+  const numMusicos = musicos.length || 1
 
   return (
     <div className="space-y-3">
       {musicos.map(m => {
-        const pagado    = pagadoPorMusico(m.id)
-        const pendiente = Math.max(0, (m.deuda_total || 0) - pagado)
-        const pct       = m.deuda_total > 0 ? Math.round((pagado / m.deuda_total) * 100) : 100
-        const pagos     = pagosDe(m.id)
-        const abierto   = expandido === m.id
+        const abierto = expandido === m.id
+        const totalPendienteGastos = gastos.reduce((sum, g) => {
+          const cuotaM  = cuotaDeMusico(g, m.id, numMusicos)
+          const pagadoM = pagadoGastoMusico(g.id, m.id)
+          return sum + Math.max(0, cuotaM - pagadoM)
+        }, 0)
 
         return (
           <div key={m.id} className="card">
-            {/* Header */}
-            <div
-              className="flex items-center gap-3 cursor-pointer"
-              onClick={() => setExpandido(abierto ? null : m.id)}
-            >
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-400 to-violet-500 flex items-center justify-center text-white font-bold shadow">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setExpandido(abierto ? null : m.id)}>
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-400 to-violet-500 flex items-center justify-center text-white font-bold shadow flex-shrink-0">
                 {m.nombre?.charAt(0)}
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900">{m.nombre}</p>
                 <p className="text-xs text-gray-400">{m.instrumento}</p>
               </div>
-              <div className="text-right">
-                {m.deuda_total > 0 ? (
+              <div className="text-right flex-shrink-0">
+                {totalPendienteGastos > 0 ? (
                   <>
-                    <p className={`text-sm font-bold ${pendiente > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {pendiente > 0 ? formatCurrency(pendiente) : '¡Pagado!'}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {pendiente > 0 ? 'pendiente' : '✓ completado'}
-                    </p>
+                    <p className="text-sm font-bold text-red-600">{formatCurrency(totalPendienteGastos)}</p>
+                    <p className="text-xs text-gray-400">pendiente</p>
                   </>
                 ) : (
-                  <span className="badge badge-gray">Sin deuda</span>
+                  <span className="text-sm font-semibold text-green-600">Al día ✓</span>
                 )}
               </div>
             </div>
 
-            {/* Barra */}
-            {m.deuda_total > 0 && (
-              <div className="mt-3">
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-primary-500 to-violet-500 rounded-full"
-                    style={{ width: `${pct}%` }} />
-                </div>
-                <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-                  <span>{pct}% pagado ({formatCurrency(pagado)})</span>
-                  <span>Total: {formatCurrency(m.deuda_total)}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Detalle expandido */}
             {abierto && (
               <div className="mt-4 space-y-3 border-t border-gray-100 pt-4 animate-fade-in">
-                {/* Formulario abono (solo director) */}
-                {esDirector && pendiente > 0 && (
-                  <div className="rounded-xl bg-primary-50 border border-primary-100 p-3 space-y-3">
-                    <p className="text-sm font-semibold text-primary-700">Registrar abono</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="label text-xs">Monto (Q)</label>
-                        <input className="input" type="number" min="0.01" step="0.01"
-                          value={formPago.monto} onChange={e => setFormPago(p => ({...p, monto: e.target.value}))}
-                          placeholder="0.00" />
-                      </div>
-                      <div>
-                        <label className="label text-xs">Fecha</label>
-                        <input className="input" type="date" value={formPago.fecha}
-                          onChange={e => setFormPago(p => ({...p, fecha: e.target.value}))} />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="label text-xs">Descripción (opcional)</label>
-                        <input className="input" value={formPago.descripcion}
-                          onChange={e => setFormPago(p => ({...p, descripcion: e.target.value}))}
-                          placeholder="Abono mensual..." />
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleAbono(m.id, pendiente)}
-                      className="btn-primary btn-sm w-full"
-                    >
-                      Registrar abono
-                    </button>
-                  </div>
+                {gastos.length === 0 ? (
+                  <p className="text-sm text-gray-400">No hay gastos fijos registrados.</p>
+                ) : (
+                  gastos.map(g => (
+                    <FilaGastoMusico key={g.id} gasto={g} musicoId={m.id} numMusicos={numMusicos} esDirector={esDirector} />
+                  ))
                 )}
-
-                {/* Historial */}
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-2">Abonos registrados ({pagos.length})</p>
-                  {pagos.length === 0 ? (
-                    <p className="text-xs text-gray-400">Sin abonos aún</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {pagos.sort((a,b) => new Date(b.creado_en)-new Date(a.creado_en)).map(p => (
-                        <div key={p.id} className="flex items-center justify-between py-1">
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">{formatCurrency(p.monto)}</span>
-                            <span className="text-xs text-gray-400 ml-2">{formatDate(p.fecha || p.creado_en)}</span>
-                            {p.descripcion && <span className="text-xs text-gray-400 ml-1">· {p.descripcion}</span>}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => setRecibo({ pago: p, musico: m, pagadoTotal: pagado, deudaTotal: m.deuda_total || 0 })}
-                              className="btn-icon btn-ghost text-gray-300 hover:text-primary-500 btn-sm"
-                              title="Imprimir recibo"
-                            >
-                              <PrinterIcon size={14} />
-                            </button>
-                            {esDirector && (
-                              <button onClick={() => eliminarPagoCuota(p.id)}
-                                className="btn-icon btn-ghost text-gray-300 hover:text-red-500 btn-sm">
-                                <TrashIcon size={13} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </div>
         )
       })}
 
-      {recibo && (
-        <ReciboModal
-          pago={recibo.pago}
-          musico={recibo.musico}
-          pagadoTotal={recibo.pagadoTotal}
-          deudaTotal={recibo.deudaTotal}
-          onClose={() => setRecibo(null)}
-        />
-      )}
     </div>
   )
 }
@@ -559,7 +506,6 @@ function TabHistorial() {
 export default function Finanzas() {
   const [tab, setTab] = useState(0)
   const [modalIngreso, setModalIngreso] = useState(false)
-  const { esDirector } = useAuth()
 
   return (
     <div className="space-y-6 animate-fade-in">

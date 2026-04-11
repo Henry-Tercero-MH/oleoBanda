@@ -7,7 +7,7 @@ import { createContext, useContext, useCallback } from 'react'
 import { useAuth } from './AuthContext'
 
 export const INSTRUMENTOS = [
-  'Guitarra', 'Bajo', 'Batería', 'Teclado / Piano',
+  'Guitarra Eléctrica', 'Guitarra Acústica', 'Bajo', 'Batería', 'Teclado / Piano',
   'Voz / Canto', 'Trompeta', 'Saxofón', 'Violín',
   'Flauta', 'Percusión', 'Dirección', 'Otro',
 ]
@@ -15,7 +15,7 @@ export const INSTRUMENTOS = [
 const MusicosContext = createContext(null)
 
 export function MusicosProvider({ children }) {
-  const { usuarios, agregarUsuario, editarUsuario, eliminarUsuario, sesion } = useAuth()
+  const { usuarios, agregarUsuario, editarUsuario, eliminarUsuario } = useAuth()
 
   // Todos los músicos activos
   const musicos = usuarios
