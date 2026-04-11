@@ -1,4 +1,4 @@
-const CACHE = 'esfuerzo-v2'
+const CACHE = 'esfuerzo-v3'
 const ASSETS = ['/', '/index.html']
 
 self.addEventListener('install', e => {
@@ -17,8 +17,9 @@ self.addEventListener('fetch', e => {
   // Solo interceptar GET de mismo origen o assets estáticos
   if (e.request.method !== 'GET') return
   const url = new URL(e.request.url)
-  // No interceptar peticiones a APIs externas (Apps Script, Drive, etc.)
+  // No interceptar APIs externas ni el proxy /api/
   if (url.origin !== self.location.origin) return
+  if (url.pathname.startsWith('/api/')) return
 
   e.respondWith(
     fetch(e.request)

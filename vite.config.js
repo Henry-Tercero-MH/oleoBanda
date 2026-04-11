@@ -16,7 +16,7 @@ function injectSwVersion() {
       const swPath = path.resolve('dist/sw.js')
       if (!fs.existsSync(swPath)) return
       let content = fs.readFileSync(swPath, 'utf-8')
-      content = content.replace('esfuerzo-v2', `esfuerzo-${Date.now()}`)
+      content = content.replace('esfuerzo-v3', `esfuerzo-${Date.now()}`)
       fs.writeFileSync(swPath, content)
     },
   }
