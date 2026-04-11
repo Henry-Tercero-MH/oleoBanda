@@ -30,12 +30,8 @@ export function AuthProvider({ children }) {
     localStorage.setItem('banda_usuarios', JSON.stringify(usuarios))
   }, [usuarios])
 
-  // Si localStorage está vacío, cargar desde Sheet como fallback
+  // Siempre cargar desde Sheet al iniciar para tener fotos y datos actualizados
   useEffect(() => {
-    const local = (() => {
-      try { return JSON.parse(localStorage.getItem('banda_usuarios') || '[]') } catch { return [] }
-    })()
-    if (local.length > 0) return  // ya hay datos locales, no consultar
     gasGetAll('usuarios').then(res => {
       if (res?.ok && Array.isArray(res.data) && res.data.length > 0) {
         const activos = res.data.filter(u => u.activo !== false && u.activo !== 'false')
