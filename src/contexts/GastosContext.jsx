@@ -10,7 +10,7 @@
  */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { db } from '../services/db'
-import { gasUpdate } from '../services/googleAppsScript'
+import { gasGetAll, gasUpdate } from '../services/googleAppsScript'
 import { shortId } from '../utils/formatters'
 
 const GastosContext = createContext(null)
@@ -31,17 +31,33 @@ export function GastosProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Siempre consultar el Sheet directamente para tener exentos actualizados
     Promise.all([
-      db.getAll('gastos'),
-      db.getAll('gastosAbonos'),
-    ]).then(([g, a]) => {
-      if (g?.length) {
-        const activos = g.filter(x => x.activo !== false && x.activo !== 'false')
+      gasGetAll('gastos'),
+      gasGetAll('gastosAbonos'),
+    ]).then(([resG, resA]) => {
+      if (resG?.ok && Array.isArray(resG.data) && resG.data.length > 0) {
+        const activos = resG.data
+          .filter(x => x.activo !== false && x.activo !== 'false')
+          .map(g => ({
+            ...g,
+            // exentos llega como "id1,id2" desde el Sheet o como array local
+            exentos: (() => {
+              if (Array.isArray(g.exentos)) return g.exentos
+              if (typeof g.exentos === 'string' && g.exentos.startsWith('[')) {
+                try { return JSON.parse(g.exentos) } catch { return [] }
+              }
+              if (typeof g.exentos === 'string' && g.exentos.trim()) {
+                return g.exentos.split(',').map(s => s.trim()).filter(Boolean)
+              }
+              return []
+            })(),
+          }))
         lsSet(LS_GASTOS, activos)
         setGastos(activos)
       }
-      if (a?.length) {
-        const activos = a.filter(x => x.activo !== false && x.activo !== 'false')
+      if (resA?.ok && Array.isArray(resA.data) && resA.data.length > 0) {
+        const activos = resA.data.filter(x => x.activo !== false && x.activo !== 'false')
         lsSet(LS_ABONOS, activos)
         setAbonos(activos)
       }
@@ -112,8 +128,8 @@ export function GastosProvider({ children }) {
       lsSet(LS_GASTOS, next)
       return next
     })
-    // gasUpdate directo para asegurar sync al Sheet con la clave correcta
-    setTimeout(() => gasUpdate('gastos', gastoId, { exentos: nuevosExentos }).catch(() => {}), 0)
+    // Enviar al Sheet como string "id1,id2" para compatibilidad con Sheets
+    setTimeout(() => gasUpdate('gastos', gastoId, { exentos: nuevosExentos.join(',') }).catch(() => {}), 0)
   }, [])
 
   const eliminarGasto = useCallback(async (id) => {
