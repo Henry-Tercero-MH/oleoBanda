@@ -51,7 +51,7 @@ function ModalEnsayo({ ensayo = null, onClose, onSave }) {
     titulo:      ensayo?.titulo      || '',
     tipo:        ensayo?.tipo        || 'ensayo',
     fecha:       normFecha(ensayo?.fecha) || hoy,
-    hora:        ensayo?.hora        || '19:00',
+    hora:        ensayo?.hora        || '18:00',
     descripcion: ensayo?.descripcion || '',
   })
   const [loading, setLoading] = useState(false)
