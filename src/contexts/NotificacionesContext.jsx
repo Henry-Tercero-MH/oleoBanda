@@ -41,8 +41,12 @@ function generarAutomaticas() {
   // Notificaciones de cumpleaños
   try {
     const usuarios = JSON.parse(localStorage.getItem('banda_usuarios') || '[]')
+    const parseNac = (f) => {
+      const s = String(f)
+      return s.includes('T') ? new Date(s) : new Date(s + 'T12:00:00')
+    }
     usuarios.filter(u => u.activo !== false && u.fecha_nacimiento).forEach(u => {
-      const nac    = new Date(u.fecha_nacimiento + 'T12:00:00')
+      const nac    = parseNac(u.fecha_nacimiento)
       const cumple = new Date(anio, nac.getMonth(), nac.getDate())
       const diff   = Math.round((cumple - hoy) / (1000 * 60 * 60 * 24))
 

@@ -23,10 +23,15 @@ export default function Dashboard() {
     const hoy  = new Date()
     const anio = hoy.getFullYear()
     const mes  = hoy.getMonth()
+    const parseNac = (f) => {
+      if (!f) return new Date(NaN)
+      const s = String(f)
+      return s.includes('T') ? new Date(s) : new Date(s + 'T12:00:00')
+    }
     return musicos
       .filter(m => m.fecha_nacimiento)
       .map(m => {
-        const nac    = new Date(m.fecha_nacimiento + 'T12:00:00')
+        const nac    = parseNac(m.fecha_nacimiento)
         const cumple = new Date(anio, nac.getMonth(), nac.getDate())
         const diff   = Math.round((cumple - hoy) / (1000 * 60 * 60 * 24))
         return { ...m, diff, cumple, nac }

@@ -10,6 +10,14 @@ const ROLES_OPCIONES = [
   { value: 'director', label: 'Director' },
 ]
 
+function normFecha(f) {
+  if (!f) return ''
+  const s = String(f)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
+}
+
 function ModalMusico({ musico = null, onClose, onSave }) {
   const [form, setForm] = useState({
     nombre:           musico?.nombre           || '',
@@ -17,7 +25,7 @@ function ModalMusico({ musico = null, onClose, onSave }) {
     instrumento:      musico?.instrumento      || '',
     rol:              musico?.rol              || 'musico',
     foto_url:         musico?.foto_url         || '',
-    fecha_nacimiento: musico?.fecha_nacimiento || '',
+    fecha_nacimiento: normFecha(musico?.fecha_nacimiento),
     password:         '',
   })
   const [showPass, setShowPass] = useState(false)
