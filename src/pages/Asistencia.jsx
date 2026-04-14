@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   PlusIcon, TrashIcon, XIcon, FloppyDiskIcon, CalendarCheckIcon,
   TrophyIcon, ChartBarIcon, ClipboardTextIcon, CheckCircleIcon,
@@ -232,8 +232,12 @@ function PanelAsistencia({ ensayo }) {
     await registrarAsistencia(ensayo.id, musicoId, 'tardanza', mins)
   }
 
-  const handleAutoMarcar = () => {
+  const intentarAutoMarcar = useCallback((forzado = false) => {
     if (!navigator.geolocation) { setGpsEstado('error'); return }
+    if (!ensayo.lat || !ensayo.lng) return
+    // No marcar si ya tiene registro (a menos que sea forzado por el botón)
+    const yaRegistrado = getRegistro(ensayo.id, sesion?.id)
+    if (yaRegistrado && !forzado) return
     setGpsEstado('buscando')
     navigator.geolocation.getCurrentPosition(
       pos => {
@@ -246,12 +250,18 @@ function PanelAsistencia({ ensayo }) {
         } else {
           setGpsEstado('lejos')
         }
-        setTimeout(() => setGpsEstado(''), 4000)
+        setTimeout(() => setGpsEstado(''), 5000)
       },
       () => { setGpsEstado('error'); setTimeout(() => setGpsEstado(''), 4000) },
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: true, timeout: 8000 }
     )
-  }
+  }, [ensayo, sesion, getRegistro, registrarAsistencia, calcMinutosTarde, distanciaMetros])
+
+  // Auto-detectar al montar el panel (solo músicos, solo si hay GPS en el ensayo)
+  useEffect(() => {
+    if (esDirector || !ensayo.lat || !ensayo.lng) return
+    intentarAutoMarcar(false)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTodosPresentes = async () => {
     setLoading('all')
@@ -280,17 +290,22 @@ function PanelAsistencia({ ensayo }) {
         )}
       </div>
 
-      {/* Botón GPS para músico logueado */}
+      {/* Estado GPS + botón de emergencia para músico */}
       {!esDirector && ensayo.lat && ensayo.lng && (
-        <div className="mb-3">
-          <button onClick={handleAutoMarcar} disabled={gpsEstado === 'buscando'}
-            className="btn-primary btn-sm w-full flex items-center justify-center gap-2">
-            <MapPinIcon size={15} />
-            {gpsEstado === 'buscando' ? 'Obteniendo ubicación...' : 'Marcarme con GPS'}
+        <div className="mb-3 flex items-center justify-between gap-2 p-2 rounded-xl bg-gray-50 border border-gray-100">
+          <div className="flex items-center gap-2 text-xs">
+            <MapPinIcon size={14} className="text-gray-400 flex-shrink-0" />
+            {gpsEstado === 'buscando' && <span className="text-gray-500">Detectando tu ubicación...</span>}
+            {gpsEstado === 'ok'       && <span className="text-green-600 font-medium">✅ Marcado automáticamente</span>}
+            {gpsEstado === 'lejos'    && <span className="text-red-500">📍 Estás lejos del ensayo (+300m)</span>}
+            {gpsEstado === 'error'    && <span className="text-red-500">⚠️ No se pudo obtener tu ubicación</span>}
+            {!gpsEstado               && <span className="text-gray-400">GPS listo</span>}
+          </div>
+          <button onClick={() => intentarAutoMarcar(true)} disabled={gpsEstado === 'buscando'}
+            className="btn-secondary btn-sm text-xs flex-shrink-0 flex items-center gap-1">
+            <MapPinIcon size={12} />
+            Marcarme
           </button>
-          {gpsEstado === 'ok'    && <p className="text-xs text-green-600 text-center mt-1">✅ Marcado correctamente</p>}
-          {gpsEstado === 'lejos' && <p className="text-xs text-red-500  text-center mt-1">📍 Estás lejos del ensayo (+300m)</p>}
-          {gpsEstado === 'error' && <p className="text-xs text-red-500  text-center mt-1">⚠️ No se pudo obtener tu ubicación</p>}
         </div>
       )}
 
