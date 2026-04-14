@@ -7,6 +7,7 @@ import {
 import { useAsistencia, TIPOS_ENSAYO, ESTADOS } from '../contexts/AsistenciaContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useNotificaciones } from '../contexts/NotificacionesContext'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -815,11 +816,24 @@ function TabPremios() {
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function Asistencia() {
-  const { ensayos } = useAsistencia()
+  const { ensayos, agregarEnsayo } = useAsistencia()
   const { esDirector } = useAuth()
+  const { agregarNotificacion } = useNotificaciones()
   const [tab, setTab] = useState('ensayos')
   const [modalNuevo, setModalNuevo] = useState(false)
-  const { agregarEnsayo } = useAsistencia()
+
+  const handleNuevoEnsayo = async (data) => {
+    const result = await agregarEnsayo(data)
+    const tipo = TIPOS_ENSAYO[data.tipo]
+    await agregarNotificacion({
+      tipo:    'info',
+      titulo:  `${tipo?.emoji || '🎸'} Nuevo ${tipo?.label || 'Ensayo'}: ${data.titulo || tipo?.label}`,
+      mensaje: `Programado para el ${fmtFecha(data.fecha)} a las ${data.hora}`,
+    })
+    setModalNuevo(false)
+    setTab('ensayos')
+    return result
+  }
 
   const TABS = [
     { id: 'ensayos',      label: 'Ensayos',      icon: ClipboardTextIcon },
@@ -871,7 +885,7 @@ export default function Asistencia() {
       {modalNuevo && (
         <ModalEnsayo
           onClose={() => setModalNuevo(false)}
-          onSave={(data) => agregarEnsayo(data).then(() => { setModalNuevo(false); setTab('ensayos') })}
+          onSave={handleNuevoEnsayo}
         />
       )}
     </div>

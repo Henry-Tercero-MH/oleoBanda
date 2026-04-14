@@ -4,6 +4,7 @@ import { useRecursos, TIPOS_RECURSO } from '../contexts/RecursosContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useListas } from '../contexts/ListasContext'
+import { useNotificaciones } from '../contexts/NotificacionesContext'
 import { formatDate } from '../utils/formatters'
 
 // Utilidad para obtener la miniatura de YouTube
@@ -24,6 +25,7 @@ function ModalRecurso({ onClose }) {
   const { agregarRecurso, tiposRecurso } = useRecursos()
   const { musicos } = useMusicos()
   const { sesion } = useAuth()
+  const { agregarNotificacion } = useNotificaciones()
   const fileRef = useRef(null)
 
   const [form, setForm] = useState({
@@ -57,11 +59,20 @@ function ModalRecurso({ onClose }) {
     if (form.tipo !== 'video' && !archivo) { setError('Selecciona un archivo'); return }
 
     setLoading(true)
+    const musico = musicos.find(m => m.id === form.musico_id)
     await agregarRecurso({
       ...form,
       creado_por: sesion?.id,
-      instrumento: musicos.find(m => m.id === form.musico_id)?.instrumento || '',
+      instrumento: musico?.instrumento || '',
     }, archivo)
+    const iconos = { video: '🎬', partitura: '📄', imagen: '🖼️' }
+    await agregarNotificacion({
+      tipo:    'info',
+      titulo:  `${iconos[form.tipo] || '📎'} Nuevo recurso: ${form.titulo}`,
+      mensaje: musico
+        ? `${tiposRecurso[form.tipo]?.label} agregado para ${musico.nombre}`
+        : `${tiposRecurso[form.tipo]?.label} disponible para toda la banda`,
+    })
     setLoading(false)
     onClose()
   }
