@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import {
   PlusIcon, TrashIcon, XIcon, FloppyDiskIcon, CalendarCheckIcon,
   TrophyIcon, ChartBarIcon, ClipboardTextIcon, CheckCircleIcon,
-  PencilSimpleIcon,
+  PencilSimpleIcon, MapPinIcon,
 } from '@phosphor-icons/react'
 import { useAsistencia, TIPOS_ENSAYO, ESTADOS } from '../contexts/AsistenciaContext'
 import { useMusicos } from '../contexts/MusicosContext'
@@ -46,14 +46,46 @@ const MEDAL_ICON = ['🥇','🥈','🥉']
 // ── Modal Ensayo ──────────────────────────────────────────────────────────────
 
 function ModalEnsayo({ ensayo = null, onClose, onSave }) {
+  const { ensayos } = useAsistencia()
   const hoy = new Date().toISOString().slice(0, 10)
+
+  // Ubicaciones únicas de ensayos anteriores que tengan lat/lng
+  const ubicacionesPrevias = useMemo(() => {
+    const vistas = new Set()
+    return ensayos
+      .filter(e => e.lat && e.lng && e.id !== ensayo?.id)
+      .filter(e => {
+        const key = `${parseFloat(e.lat).toFixed(3)},${parseFloat(e.lng).toFixed(3)}`
+        if (vistas.has(key)) return false
+        vistas.add(key)
+        return true
+      })
+      .slice(0, 5)
+  }, [ensayos, ensayo?.id])
+
   const [form, setForm] = useState({
     titulo:      ensayo?.titulo      || '',
     tipo:        ensayo?.tipo        || 'ensayo',
     fecha:       normFecha(ensayo?.fecha) || hoy,
     hora:        ensayo?.hora        || '18:00',
     descripcion: ensayo?.descripcion || '',
+    lat:         ensayo?.lat         || '',
+    lng:         ensayo?.lng         || '',
   })
+  const [gpsLoading, setGpsLoading] = useState(false)
+
+  const capturarUbicacion = () => {
+    if (!navigator.geolocation) return
+    setGpsLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setForm(p => ({ ...p, lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6) }))
+        setGpsLoading(false)
+      },
+      () => setGpsLoading(false),
+      { enableHighAccuracy: true }
+    )
+  }
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -107,6 +139,41 @@ function ModalEnsayo({ ensayo = null, onClose, onSave }) {
                 onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))}
                 placeholder="Notas adicionales..." />
             </div>
+            <div className="col-span-2">
+              <label className="label">Ubicación del ensayo (para auto-marcarse)</label>
+              {/* Ubicaciones anteriores */}
+              {ubicacionesPrevias.length > 0 && !form.lat && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {ubicacionesPrevias.map(e => (
+                    <button key={e.id} type="button"
+                      onClick={() => setForm(p => ({ ...p, lat: e.lat, lng: e.lng }))}
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-gray-200 bg-gray-50 hover:border-primary-400 hover:bg-primary-50 hover:text-primary-700 transition-all">
+                      <MapPinIcon size={11} />
+                      {e.titulo || fmtFecha(e.fecha)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2 items-center">
+                <button type="button" onClick={capturarUbicacion} disabled={gpsLoading}
+                  className="btn-secondary btn-sm flex-shrink-0 flex items-center gap-1">
+                  <MapPinIcon size={14} />
+                  {gpsLoading ? 'Obteniendo...' : form.lat ? 'Actualizar GPS' : 'Capturar mi ubicación'}
+                </button>
+                {form.lat && form.lng && (
+                  <span className="text-xs text-gray-500 truncate">
+                    {parseFloat(form.lat).toFixed(4)}, {parseFloat(form.lng).toFixed(4)}
+                  </span>
+                )}
+                {form.lat && (
+                  <button type="button" onClick={() => setForm(p => ({ ...p, lat: '', lng: '' }))}
+                    className="text-xs text-red-400 hover:text-red-600 flex-shrink-0">
+                    <XIcon size={13} />
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Los músicos podrán marcarse automáticamente al estar dentro de 300m</p>
+            </div>
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancelar</button>
@@ -126,15 +193,63 @@ function ModalEnsayo({ ensayo = null, onClose, onSave }) {
 function PanelAsistencia({ ensayo }) {
   const { registrarAsistencia, marcarTodosPresente, getRegistro, registrosDe } = useAsistencia()
   const { musicos } = useMusicos()
-  const { esDirector } = useAuth()
+  const { esDirector, sesion } = useAuth()
   const [loading, setLoading] = useState(null)
+  const [editMinutos, setEditMinutos] = useState({}) // { musicoId: valor }
+  const [gpsEstado, setGpsEstado] = useState('')     // 'buscando' | 'ok' | 'lejos' | 'error'
 
   const regsDe = registrosDe(ensayo.id)
 
+  const calcMinutosTarde = (horaEnsayo) => {
+    if (!horaEnsayo) return 0
+    const [hh, mm] = horaEnsayo.split(':').map(Number)
+    const ahora = new Date()
+    const inicioMin = hh * 60 + mm
+    const ahoraMin  = ahora.getHours() * 60 + ahora.getMinutes()
+    const diff = ahoraMin - inicioMin
+    return diff > 0 ? diff : 0
+  }
+
+  const distanciaMetros = (lat1, lng1, lat2, lng2) => {
+    const R = 6371000
+    const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180
+    const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lng2 - lng1) * Math.PI / 180
+    const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
   const handleMarca = async (musicoId, estado) => {
     setLoading(musicoId + estado)
-    await registrarAsistencia(ensayo.id, musicoId, estado)
+    const minutosTarde = estado === 'tardanza' ? calcMinutosTarde(ensayo.hora) : 0
+    await registrarAsistencia(ensayo.id, musicoId, estado, minutosTarde)
     setLoading(null)
+  }
+
+  const handleEditarMinutos = async (musicoId, valor) => {
+    const mins = Math.max(0, parseInt(valor) || 0)
+    setEditMinutos(p => ({ ...p, [musicoId]: undefined }))
+    await registrarAsistencia(ensayo.id, musicoId, 'tardanza', mins)
+  }
+
+  const handleAutoMarcar = () => {
+    if (!navigator.geolocation) { setGpsEstado('error'); return }
+    setGpsEstado('buscando')
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const dist = distanciaMetros(pos.coords.latitude, pos.coords.longitude, parseFloat(ensayo.lat), parseFloat(ensayo.lng))
+        if (dist <= 300) {
+          const mins = calcMinutosTarde(ensayo.hora)
+          const estado = mins > 0 ? 'tardanza' : 'presente'
+          registrarAsistencia(ensayo.id, sesion.id, estado, mins)
+          setGpsEstado('ok')
+        } else {
+          setGpsEstado('lejos')
+        }
+        setTimeout(() => setGpsEstado(''), 4000)
+      },
+      () => { setGpsEstado('error'); setTimeout(() => setGpsEstado(''), 4000) },
+      { enableHighAccuracy: true }
+    )
   }
 
   const handleTodosPresentes = async () => {
@@ -164,11 +279,26 @@ function PanelAsistencia({ ensayo }) {
         )}
       </div>
 
+      {/* Botón GPS para músico logueado */}
+      {!esDirector && ensayo.lat && ensayo.lng && (
+        <div className="mb-3">
+          <button onClick={handleAutoMarcar} disabled={gpsEstado === 'buscando'}
+            className="btn-primary btn-sm w-full flex items-center justify-center gap-2">
+            <MapPinIcon size={15} />
+            {gpsEstado === 'buscando' ? 'Obteniendo ubicación...' : 'Marcarme con GPS'}
+          </button>
+          {gpsEstado === 'ok'    && <p className="text-xs text-green-600 text-center mt-1">✅ Marcado correctamente</p>}
+          {gpsEstado === 'lejos' && <p className="text-xs text-red-500  text-center mt-1">📍 Estás lejos del ensayo (+300m)</p>}
+          {gpsEstado === 'error' && <p className="text-xs text-red-500  text-center mt-1">⚠️ No se pudo obtener tu ubicación</p>}
+        </div>
+      )}
+
       {/* Grid de músicos */}
       <div className="space-y-2">
         {musicos.map(m => {
           const reg = getRegistro(ensayo.id, m.id)
           const estadoActual = reg?.estado || null
+          const editandoMins = editMinutos[m.id] !== undefined
 
           return (
             <div key={m.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50">
@@ -188,7 +318,30 @@ function PanelAsistencia({ ensayo }) {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-800 truncate">{m.nombre}</p>
-                <p className="text-xs text-gray-400">{m.instrumento}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-gray-400">{m.instrumento}</p>
+                  {/* Minutos tarde editables */}
+                  {estadoActual === 'tardanza' && esDirector && (
+                    editandoMins ? (
+                      <input
+                        type="number" min="0" max="120" autoFocus
+                        defaultValue={reg?.minutos_tarde || 0}
+                        className="w-16 text-xs px-1.5 py-0.5 border border-yellow-400 rounded-md"
+                        onBlur={e => handleEditarMinutos(m.id, e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleEditarMinutos(m.id, e.target.value)}
+                      />
+                    ) : (
+                      <button onClick={() => setEditMinutos(p => ({ ...p, [m.id]: reg?.minutos_tarde || 0 }))}
+                        className="text-xs text-yellow-600 hover:text-yellow-800 flex items-center gap-0.5">
+                        <PencilSimpleIcon size={10} />
+                        {reg?.minutos_tarde || 0} min tarde
+                      </button>
+                    )
+                  )}
+                  {estadoActual === 'tardanza' && !esDirector && reg?.minutos_tarde > 0 && (
+                    <span className="text-xs text-yellow-600">{reg.minutos_tarde} min tarde</span>
+                  )}
+                </div>
               </div>
 
               {/* Botones de estado */}
@@ -378,7 +531,7 @@ function TabEstadisticas() {
   const [anio,  setAnio]  = useState(anioActual)
 
   const anios = useMemo(() => {
-    const set = new Set(ensayos.map(e => new Date(e.fecha + 'T12:00:00').getFullYear()))
+    const set = new Set(ensayos.map(e => parseDate(e.fecha).getFullYear()).filter(a => !isNaN(a)))
     set.add(anioActual)
     return [...set].sort((a, b) => b - a)
   }, [ensayos, anioActual])
@@ -560,7 +713,7 @@ function TabPremios() {
   const [anio,  setAnio]  = useState(anioActual)
 
   const anios = useMemo(() => {
-    const set = new Set(ensayos.map(e => new Date(e.fecha + 'T12:00:00').getFullYear()))
+    const set = new Set(ensayos.map(e => parseDate(e.fecha).getFullYear()).filter(a => !isNaN(a)))
     set.add(anioActual)
     return [...set].sort((a, b) => b - a)
   }, [ensayos, anioActual])
@@ -619,7 +772,7 @@ function TabPremios() {
                 <p className="font-bold text-lg">Premios — {periodo}</p>
                 <p className="text-sm opacity-80">
                   {rPuntual.length} músico{rPuntual.length !== 1 ? 's' : ''} con registros · {ensayos.filter(e => {
-                    const f = new Date(e.fecha + 'T12:00:00')
+                    const f = parseDate(e.fecha)
                     return modo === 'mes'
                       ? f.getMonth() === mes && f.getFullYear() === anio
                       : f.getFullYear() === anio
