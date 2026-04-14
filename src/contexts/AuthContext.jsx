@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { shortId } from '../utils/formatters'
-import { sha256, gasGetAll, gasUpdate } from '../services/googleAppsScript'
+import { sha256, gasGetAll, gasInsert, gasUpdate } from '../services/googleAppsScript'
 
 export const AuthContext = createContext(null)
 
@@ -9,11 +9,11 @@ export const AuthContext = createContext(null)
 export const ROLES = {
   director: {
     label: 'Director',
-    rutas: ['/', '/musicos', '/recursos', '/listas', '/gastos', '/finanzas', '/ajustes'],
+    rutas: ['/', '/musicos', '/recursos', '/listas', '/gastos', '/finanzas', '/asistencia', '/ajustes'],
   },
   musico: {
     label: 'Músico',
-    rutas: ['/', '/musicos', '/recursos', '/listas', '/gastos', '/finanzas'],
+    rutas: ['/', '/musicos', '/recursos', '/listas', '/gastos', '/finanzas', '/asistencia'],
   },
 }
 
@@ -77,6 +77,7 @@ export function AuthProvider({ children }) {
       creado_en: new Date().toISOString(),
     }
     setUsuarios(prev => [...prev, nuevo])
+    try { await gasInsert('usuarios', nuevo) } catch {}
     return { ok: true }
   }, [usuarios])
 
@@ -86,10 +87,23 @@ export function AuthProvider({ children }) {
       cambios.password_hash = await sha256(data.password)
       delete cambios.password
     }
-    setUsuarios(prev => prev.map(u => u.id === id ? { ...u, ...cambios } : u))
-    // Actualizar sesión si es el usuario actual
+
+    // Capturar el registro completo actualizado para upsert
+    let usuarioActualizado = null
+    setUsuarios(prev => {
+      const updated = prev.map(u => u.id === id ? { ...u, ...cambios } : u)
+      usuarioActualizado = updated.find(u => u.id === id) || null
+      return updated
+    })
     setSesion(prev => prev?.id === id ? { ...prev, ...cambios } : prev)
-    try { await gasUpdate('usuarios', id, cambios) } catch {}
+
+    try {
+      const res = await gasUpdate('usuarios', id, cambios)
+      // Si no existe en GAS (nunca se sincronizó el insert), insertar el registro completo
+      if (res?.ok === false && res?.error?.includes('No encontrado') && usuarioActualizado) {
+        await gasInsert('usuarios', usuarioActualizado)
+      }
+    } catch {}
   }, [setSesion])
 
   const eliminarUsuario = useCallback(async (id) => {

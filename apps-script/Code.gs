@@ -1,23 +1,6 @@
 /**
  * BandaApp — Google Apps Script (GENÉRICO)
  * ============================================================
- * NO necesitas editar este archivo para agregar nuevas entidades.
- * Cualquier entidad nueva que uses desde la app se crea
- * automáticamente como hoja en el Sheet.
- *
- * Instalación (una sola vez):
- * 1. Abre Google Sheets → Extensiones → Apps Script
- * 2. Pega este código completo
- * 3. Despliega como Web App:
- *    - Implementar → Nueva implementación
- *    - Tipo: Aplicación web
- *    - Ejecutar como: Yo
- *    - Acceso: Cualquier persona
- * 4. Copia la URL y pégala en la app → Ajustes
- *
- * ¿Quieres una hoja nueva? Solo úsala desde la app con db.insert('miEntidad', datos)
- * y el Sheet la crea automáticamente con las columnas correctas.
- * ============================================================
  */
 
 // ── Punto de entrada POST ─────────────────────────────────────
@@ -31,22 +14,22 @@ function doPost(e) {
     }
 
     switch (body.action) {
-      case 'getAll':       return json(getAll(body.entity))
-      case 'insert':       return json(insert(body.entity, body.data))
-      case 'update':       return json(update(body.entity, body.id, body.data))
-      case 'remove':       return json(remove(body.entity, body.id))
-      case 'backup':       return json(backup(body))
-      case 'uploadDrive':  return json(uploadToDrive(body.fileName, body.mimeType, body.base64Data, body.folderId))
-      case 'deleteDrive':  return json(deleteFromDrive(body.fileId))
-      case 'testDrive':    return json(testDrive())
-      default:             throw new Error('Acción desconocida: ' + body.action)
+      case 'getAll':     return json(getAll(body.entity))
+      case 'insert':     return json(insert(body.entity, body.data))
+      case 'update':     return json(update(body.entity, body.id, body.data))
+      case 'remove':     return json(remove(body.entity, body.id))
+      case 'backup':     return json(backup(body))
+      case 'testDrive':  return json(testDrive())
+      case 'uploadDrive': return json(uploadDrive(body.fileName, body.mimeType, body.base64Data, body.folderId))
+      case 'deleteDrive': return json(deleteDrive(body.fileId))
+      default:           throw new Error('Acción desconocida: ' + body.action)
     }
   } catch (err) {
     return json({ ok: false, error: err.message })
   }
 }
 
-// ── Punto de entrada GET (ping / verificar conexión) ──────────
+// ── Punto de entrada GET ──────────────────────────────────────
 function doGet(e) {
   const SECRET = PropertiesService.getScriptProperties().getProperty('API_SECRET')
   const s = e && e.parameter && e.parameter.secret
@@ -56,10 +39,6 @@ function doGet(e) {
 
 // ── CRUD genérico ─────────────────────────────────────────────
 
-/**
- * Devuelve todos los registros de una hoja como array de objetos.
- * La fila 1 se usa como nombres de columna (keys).
- */
 function getAll(entity) {
   const ss   = SpreadsheetApp.getActiveSpreadsheet()
   const hoja = ss.getSheetByName(sheetName(entity))
@@ -71,33 +50,31 @@ function getAll(entity) {
   const headers = valores[0].map(String)
   const data = valores.slice(1).map(function(fila) {
     var obj = {}
-    headers.forEach(function(key, i) { obj[key] = fila[i] })
+    headers.forEach(function(key, i) {
+      var val = fila[i]
+      if (val === 'true' || val === true || val === 'TRUE') obj[key] = true
+      else if (val === 'false' || val === false || val === 'FALSE') obj[key] = false
+      else obj[key] = val
+    })
     return obj
   })
   return { ok: true, data: data }
 }
 
-/**
- * Inserta un nuevo registro.
- * Si la hoja no existe, la crea con las keys del objeto como encabezados.
- * Si la hoja existe pero faltan columnas, las agrega al final.
- */
 function insert(entity, data) {
   if (!data || typeof data !== 'object') throw new Error('data requerida')
 
-  const ss         = SpreadsheetApp.getActiveSpreadsheet()
-  const nombre     = sheetName(entity)
-  var   hoja       = ss.getSheetByName(nombre)
-  const keys       = Object.keys(data)
+  const ss     = SpreadsheetApp.getActiveSpreadsheet()
+  const nombre = sheetName(entity)
+  var   hoja   = ss.getSheetByName(nombre)
+  const keys   = Object.keys(data)
 
   if (!hoja) {
-    // Crear hoja nueva con los keys como encabezados
     hoja = ss.insertSheet(nombre)
     hoja.appendRow(keys)
     estilizarEncabezado(hoja, keys.length)
     hoja.setFrozenRows(1)
   } else {
-    // Agregar columnas faltantes si las hay
     const existentes = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0].map(String)
     keys.forEach(function(key) {
       if (existentes.indexOf(key) === -1) {
@@ -109,7 +86,6 @@ function insert(entity, data) {
     })
   }
 
-  // Leer encabezados actualizados y escribir fila
   const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0].map(String)
   const fila    = headers.map(function(h) { return data[h] !== undefined ? data[h] : '' })
   hoja.appendRow(fila)
@@ -117,10 +93,6 @@ function insert(entity, data) {
   return { ok: true, id: data.id || null }
 }
 
-/**
- * Actualiza campos de un registro buscando por id (columna 1) o
- * por el campo que tenga el mismo valor que id.
- */
 function update(entity, id, data) {
   const ss   = SpreadsheetApp.getActiveSpreadsheet()
   const hoja = ss.getSheetByName(sheetName(entity))
@@ -128,9 +100,11 @@ function update(entity, id, data) {
 
   const valores = hoja.getDataRange().getValues()
   const headers = valores[0].map(String)
+  const idCol   = headers.indexOf('id')
 
   for (var i = 1; i < valores.length; i++) {
-    if (String(valores[i][0]) === String(id)) {
+    const rowId = idCol !== -1 ? String(valores[i][idCol]) : String(valores[i][0])
+    if (rowId === String(id)) {
       Object.keys(data).forEach(function(key) {
         const col = headers.indexOf(key)
         if (col !== -1) hoja.getRange(i + 1, col + 1).setValue(data[key])
@@ -141,10 +115,6 @@ function update(entity, id, data) {
   return { ok: false, error: 'No encontrado: ' + id }
 }
 
-/**
- * Soft-delete: pone activo=false si existe esa columna.
- * Si no existe, elimina la fila físicamente.
- */
 function remove(entity, id) {
   const ss   = SpreadsheetApp.getActiveSpreadsheet()
   const hoja = ss.getSheetByName(sheetName(entity))
@@ -153,9 +123,11 @@ function remove(entity, id) {
   const valores   = hoja.getDataRange().getValues()
   const headers   = valores[0].map(String)
   const activoCol = headers.indexOf('activo')
+  const idCol     = headers.indexOf('id')
 
   for (var i = 1; i < valores.length; i++) {
-    if (String(valores[i][0]) === String(id)) {
+    const rowId = idCol !== -1 ? String(valores[i][idCol]) : String(valores[i][0])
+    if (rowId === String(id)) {
       if (activoCol !== -1) {
         hoja.getRange(i + 1, activoCol + 1).setValue(false)
       } else {
@@ -167,17 +139,9 @@ function remove(entity, id) {
   return { ok: false, error: 'No encontrado: ' + id }
 }
 
-/**
- * Backup completo: recibe un objeto { entidad: [array], ... }
- * y sobreescribe cada hoja con los datos recibidos.
- * También funciona para entidades nuevas — las crea si no existen.
- */
 function backup(body) {
   const ss      = SpreadsheetApp.getActiveSpreadsheet()
-  var   total   = 0
   var   resumen = []
-
-  // Ignorar campos de control del request
   const ignorar = ['action', 'secret', 'fecha']
 
   Object.keys(body).forEach(function(key) {
@@ -203,8 +167,6 @@ function backup(body) {
       return headers.map(function(h) { return r[h] !== undefined ? r[h] : '' })
     })
     hoja.getRange(2, 1, filas.length, headers.length).setValues(filas)
-
-    total += registros.length
     resumen.push(registros.length + ' ' + key)
   })
 
@@ -213,97 +175,71 @@ function backup(body) {
 
 // ── Google Drive ──────────────────────────────────────────────
 
-/**
- * Verifica que el script tenga permisos de Drive.
- * Ejecuta esta función manualmente UNA VEZ desde el editor de Apps Script
- * para que Google muestre la pantalla de autorización de permisos.
- */
 function testDrive() {
   try {
-    var root = DriveApp.getRootFolder()
-    var folders = DriveApp.getFoldersByName('BandaApp - Recursos')
-    var folder = folders.hasNext()
-      ? folders.next()
-      : DriveApp.createFolder('BandaApp - Recursos')
+    const nombre = 'BandaApp - Recursos'
+    const folders = DriveApp.getFoldersByName(nombre)
+    var folder
+    if (folders.hasNext()) {
+      folder = folders.next()
+    } else {
+      folder = DriveApp.createFolder(nombre)
+    }
     return {
       ok: true,
-      mensaje: 'Drive autorizado. Carpeta: ' + folder.getName(),
+      mensaje: 'Carpeta lista: ' + folder.getName(),
       folderId: folder.getId(),
       folderUrl: folder.getUrl(),
     }
   } catch (err) {
-    return { ok: false, error: 'Sin permiso de Drive: ' + err.message }
+    return { ok: false, error: err.message }
   }
 }
 
-/**
- * Sube un archivo a la carpeta "BandaApp - Recursos" en Drive.
- * Recibe el archivo en base64 (data URL completa: "data:mime/type;base64,xxx").
- * Retorna la URL pública del archivo para verlo/descargarlo.
- *
- * @param {string} fileName   - Nombre del archivo (ej: "partitura.pdf")
- * @param {string} mimeType   - Tipo MIME (ej: "application/pdf", "image/jpeg")
- * @param {string} base64Data - Data URL completa o base64 puro
- * @param {string} folderId   - (Opcional) ID de carpeta Drive específica
- */
-function uploadToDrive(fileName, mimeType, base64Data, folderId) {
+function uploadDrive(fileName, mimeType, base64Data, folderId) {
   try {
-    // Extraer el base64 puro si viene como data URL (data:mime;base64,XXXX)
-    var base64Pure = base64Data.indexOf(',') !== -1
-      ? base64Data.split(',')[1]
-      : base64Data
-
-    var bytes = Utilities.base64Decode(base64Pure)
-    var blob  = Utilities.newBlob(bytes, mimeType, fileName)
-
-    // Obtener o crear la carpeta destino
     var folder
     if (folderId) {
       folder = DriveApp.getFolderById(folderId)
     } else {
-      var found = DriveApp.getFoldersByName('BandaApp - Recursos')
-      folder = found.hasNext() ? found.next() : DriveApp.createFolder('BandaApp - Recursos')
+      const nombre  = 'BandaApp - Recursos'
+      const folders = DriveApp.getFoldersByName(nombre)
+      folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(nombre)
     }
 
-    var file = folder.createFile(blob)
-
-    // Hacer el archivo accesible con enlace (cualquiera con el link puede ver)
+    const base64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data
+    const blob   = Utilities.newBlob(Utilities.base64Decode(base64), mimeType, fileName)
+    const file   = folder.createFile(blob)
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW)
 
     return {
-      ok:          true,
+      ok: true,
       fileId:      file.getId(),
       url:         file.getUrl(),
-      downloadUrl: 'https://drive.google.com/uc?id=' + file.getId(),
+      downloadUrl: 'https://drive.google.com/uc?export=download&id=' + file.getId(),
       previewUrl:  'https://drive.google.com/file/d/' + file.getId() + '/preview',
-      name:        file.getName(),
     }
   } catch (err) {
-    return { ok: false, error: 'Error al subir a Drive: ' + err.message }
+    return { ok: false, error: err.message }
   }
 }
 
-/**
- * Elimina un archivo de Drive por su ID.
- */
-function deleteFromDrive(fileId) {
+function deleteDrive(fileId) {
   try {
     DriveApp.getFileById(fileId).setTrashed(true)
     return { ok: true }
   } catch (err) {
-    return { ok: false, error: 'Error al eliminar de Drive: ' + err.message }
+    return { ok: false, error: err.message }
   }
 }
 
 // ── Helpers ───────────────────────────────────────────────────
 
-/** Convierte el nombre de entidad en nombre de hoja (capitalizado) */
 function sheetName(entity) {
   if (!entity) throw new Error('entity es requerido')
   return entity.charAt(0).toUpperCase() + entity.slice(1)
 }
 
-/** Aplica estilo morado a los encabezados */
 function estilizarEncabezado(hoja, totalCols, soloCol) {
   var rango = soloCol
     ? hoja.getRange(1, soloCol, 1, 1)
@@ -311,7 +247,6 @@ function estilizarEncabezado(hoja, totalCols, soloCol) {
   rango.setBackground('#7c3aed').setFontColor('#ffffff').setFontWeight('bold')
 }
 
-/** Serializa a JSON y devuelve como ContentService */
 function json(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))

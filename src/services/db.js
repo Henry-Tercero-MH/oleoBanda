@@ -110,7 +110,8 @@ async function insert(entity, data) {
 
   if (_online) {
     try {
-      await gasInsert(entity, record)
+      const res = await gasInsert(entity, record)
+      if (res && res.ok === false) throw new Error(res.error || 'GAS insert error')
       // Insertar items en su hoja separada
       if (entity === 'ventas' && record.items && record.items.length) {
         await Promise.all(record.items.map(item =>
@@ -135,19 +136,19 @@ async function insert(entity, data) {
 }
 
 async function update(entity, id, data) {
-  // Actualizar caché local
-  const list = lsGet(entity).map(item =>
-    item.id === id ? { ...item, ...data } : item
-  )
-  lsSet(entity, list)
+  // Actualizar caché local y obtener el registro completo actualizado
+  const currentList = lsGet(entity)
+  const updatedList = currentList.map(item => item.id === id ? { ...item, ...data } : item)
+  lsSet(entity, updatedList)
 
   if (_online) {
     try {
-      await gasUpdate(entity, id, data)
+      const res = await gasUpdate(entity, id, data)
+      if (res && res.ok === false) throw new Error(res.error || 'GAS update error')
       _notify()
       return
     } catch {
-      // encolar
+      // offline o error — encolar
     }
   }
 
@@ -188,13 +189,15 @@ export async function syncPending() {
 
   for (const item of sorted) {
     try {
+      let res
       if (item.action === 'insert') {
-        await gasInsert(item.entity, item.data)
+        res = await gasInsert(item.entity, item.data)
       } else if (item.action === 'update') {
-        await gasUpdate(item.entity, item.recordId, item.data)
+        res = await gasUpdate(item.entity, item.recordId, item.data)
       } else if (item.action === 'remove') {
-        await gasRemove(item.entity, item.recordId)
+        res = await gasRemove(item.entity, item.recordId)
       }
+      if (res && res.ok === false) throw new Error(res.error || 'GAS sync error')
 
       // Eliminar de la cola al tener éxito
       const current = getQueue()

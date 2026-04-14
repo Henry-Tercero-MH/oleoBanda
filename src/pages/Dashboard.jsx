@@ -1,10 +1,11 @@
-import { MusicNotesIcon, CurrencyDollarIcon, UsersThreeIcon, BookOpenIcon, CalendarBlankIcon, CreditCardIcon, ArrowRightIcon } from '@phosphor-icons/react'
+import { MusicNotesIcon, CurrencyDollarIcon, UsersThreeIcon, BookOpenIcon, CalendarBlankIcon, CreditCardIcon, ArrowRightIcon, CakeIcon, CalendarCheckIcon } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useFinanzas, TIPOS_INGRESO } from '../contexts/FinanzasContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useRecursos } from '../contexts/RecursosContext'
 import { useGastos } from '../contexts/GastosContext'
+import { useAsistencia } from '../contexts/AsistenciaContext'
 import { formatCurrency, formatDate } from '../utils/formatters'
 
 export default function Dashboard() {
@@ -13,8 +14,30 @@ export default function Dashboard() {
   const { ingresos, pagosCuota, fondoDisponible, totalIngresos } = useFinanzas()
   const { recursos } = useRecursos()
   const { gastos, pagadoDe, pagadoPorMusico: pagadoGastoMusico, cuotaDeMusico, totalPendiente: gastosPendiente } = useGastos()
+  const { rankingPuntualidad } = useAsistencia()
 
   const numMusicos = musicos.length || 1
+
+  // Cumpleaños próximos (hoy + 7 días)
+  const cumpleanosProximos = (() => {
+    const hoy = new Date()
+    const anio = hoy.getFullYear()
+    return musicos
+      .filter(m => m.fecha_nacimiento)
+      .map(m => {
+        const nac    = new Date(m.fecha_nacimiento + 'T12:00:00')
+        const cumple = new Date(anio, nac.getMonth(), nac.getDate())
+        const diff   = Math.round((cumple - hoy) / (1000 * 60 * 60 * 24))
+        return { ...m, diff, cumple }
+      })
+      .filter(m => m.diff >= 0 && m.diff <= 7)
+      .sort((a, b) => a.diff - b.diff)
+  })()
+
+  // Ranking del mes actual (top 3)
+  const mesActual  = new Date().getMonth()
+  const anioActual = new Date().getFullYear()
+  const topMes = rankingPuntualidad(musicos, mesActual, anioActual).slice(0, 3)
 
   // Por músico: cuánto debe pagar de cada gasto y cuánto ha pagado
   const estadoPorMusico = musicos.map(m => {
@@ -262,6 +285,99 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Cumpleaños próximos + Top Puntualidad del mes */}
+      {(cumpleanosProximos.length > 0 || topMes.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* Cumpleaños */}
+          {cumpleanosProximos.length > 0 && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <CakeIcon size={18} className="text-pink-500" />
+                  <h2 className="text-base font-semibold text-gray-800">Cumpleaños Próximos</h2>
+                </div>
+                <span className="badge badge-purple">{cumpleanosProximos.length}</span>
+              </div>
+              <div className="space-y-3">
+                {cumpleanosProximos.map(m => (
+                  <div key={m.id} className={`flex items-center gap-3 p-2.5 rounded-xl
+                    ${m.diff === 0 ? 'bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200' : 'bg-gray-50'}`}>
+                    {m.foto_url ? (
+                      <img src={m.foto_url} alt={m.nombre}
+                        className="h-9 w-9 rounded-full object-cover border flex-shrink-0"
+                        onError={e => e.target.style.display='none'} />
+                    ) : (
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                        {m.nombre?.charAt(0)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{m.nombre}</p>
+                      <p className="text-xs text-gray-400">{m.instrumento}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      {m.diff === 0
+                        ? <span className="text-sm font-bold text-pink-600">🎂 ¡Hoy!</span>
+                        : <span className="text-sm font-semibold text-purple-600">en {m.diff}d</span>
+                      }
+                      <p className="text-xs text-gray-400">
+                        {m.cumple.toLocaleDateString('es-GT', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top puntualidad del mes */}
+          {topMes.length > 0 && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <CalendarCheckIcon size={18} className="text-primary-500" />
+                  <h2 className="text-base font-semibold text-gray-800">Puntualidad del Mes</h2>
+                </div>
+                <Link to="/asistencia" className="flex items-center gap-1 text-xs text-primary-600 hover:underline">
+                  Ver todo <ArrowRightIcon size={12} />
+                </Link>
+              </div>
+              <div className="space-y-3">
+                {topMes.map((m, i) => {
+                  const medals = ['🥇','🥈','🥉']
+                  return (
+                    <div key={m.id} className={`flex items-center gap-3 p-2.5 rounded-xl
+                      ${i === 0 ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-100' : 'bg-gray-50'}`}>
+                      <span className="text-lg w-7 text-center flex-shrink-0">{medals[i]}</span>
+                      {m.foto_url ? (
+                        <img src={m.foto_url} alt={m.nombre}
+                          className="h-9 w-9 rounded-full object-cover border flex-shrink-0"
+                          onError={e => e.target.style.display='none'} />
+                      ) : (
+                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary-400 to-violet-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                          {m.nombre?.charAt(0)}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{m.nombre}</p>
+                        <p className="text-xs text-gray-400">{m.instrumento}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`text-base font-bold ${i === 0 ? 'text-amber-600' : 'text-gray-700'}`}>
+                          {m.stats.pctPuntual}%
+                        </p>
+                        <p className="text-xs text-gray-400">{m.stats.presente} presentes</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

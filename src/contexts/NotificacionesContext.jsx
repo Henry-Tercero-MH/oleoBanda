@@ -14,27 +14,61 @@ function generarAutomaticas() {
   const anio = hoy.getFullYear()
   const key  = `auto-${anio}-${mes}`
 
-  if (dia < 1 || dia > 7) return []
+  const notifs = []
 
-  if (dia === 7) {
-    return [{
-      id:        `${key}-urgente`,
-      tipo:      'urgente',
-      titulo:    '¡Hoy es el día 7!',
-      mensaje:   'Recuerda reunir el dinero de las ofrendas y cuotas del mes. Es el plazo de recordatorio.',
-      fecha:     new Date(anio, mes, 7).toISOString(),
-      automatica: true,
-    }]
+  if (dia >= 1 && dia <= 7) {
+    if (dia === 7) {
+      notifs.push({
+        id:         `${key}-urgente`,
+        tipo:       'urgente',
+        titulo:     '¡Hoy es el día 7!',
+        mensaje:    'Recuerda reunir el dinero de las ofrendas y cuotas del mes. Es el plazo de recordatorio.',
+        fecha:      new Date(anio, mes, 7).toISOString(),
+        automatica: true,
+      })
+    } else {
+      notifs.push({
+        id:         `${key}-recordatorio`,
+        tipo:       'recordatorio',
+        titulo:     'Recordatorio mensual',
+        mensaje:    `Estamos en el día ${dia}. Avisa a los músicos que reúnan el dinero para las ofrendas y cuotas del mes antes del día 7.`,
+        fecha:      new Date(anio, mes, dia).toISOString(),
+        automatica: true,
+      })
+    }
   }
 
-  return [{
-    id:        `${key}-recordatorio`,
-    tipo:      'recordatorio',
-    titulo:    'Recordatorio mensual',
-    mensaje:   `Estamos en el día ${dia}. Avisa a los músicos que reúnan el dinero para las ofrendas y cuotas del mes antes del día 7.`,
-    fecha:     new Date(anio, mes, dia).toISOString(),
-    automatica: true,
-  }]
+  // Notificaciones de cumpleaños
+  try {
+    const usuarios = JSON.parse(localStorage.getItem('banda_usuarios') || '[]')
+    usuarios.filter(u => u.activo !== false && u.fecha_nacimiento).forEach(u => {
+      const nac    = new Date(u.fecha_nacimiento + 'T12:00:00')
+      const cumple = new Date(anio, nac.getMonth(), nac.getDate())
+      const diff   = Math.round((cumple - hoy) / (1000 * 60 * 60 * 24))
+
+      if (diff === 0) {
+        notifs.push({
+          id:         `cumple-hoy-${u.id}-${anio}`,
+          tipo:       'cumpleanos',
+          titulo:     `🎂 ¡Hoy cumple años ${u.nombre}!`,
+          mensaje:    `Felicita a ${u.nombre} en su día especial. ¡Que Dios le bendiga!`,
+          fecha:      new Date().toISOString(),
+          automatica: true,
+        })
+      } else if (diff > 0 && diff <= 7) {
+        notifs.push({
+          id:         `cumple-prox-${u.id}-${anio}`,
+          tipo:       'info',
+          titulo:     `🎉 Cumpleaños próximo: ${u.nombre}`,
+          mensaje:    `${u.nombre} cumple años en ${diff} día${diff !== 1 ? 's' : ''} (${cumple.toLocaleDateString('es-GT', { day: 'numeric', month: 'long' })}).`,
+          fecha:      new Date().toISOString(),
+          automatica: true,
+        })
+      }
+    })
+  } catch { /* silencioso */ }
+
+  return notifs
 }
 
 export function NotificacionesProvider({ children }) {

@@ -254,8 +254,8 @@ function ModalAgregarALista({ recurso, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl animate-fade-in">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 flex-shrink-0">
           <div>
             <h2 className="text-base font-semibold text-gray-900">Agregar a lista</h2>
             <p className="text-xs text-gray-400 truncate max-w-[200px]">{recurso.titulo}</p>
@@ -263,7 +263,7 @@ function ModalAgregarALista({ recurso, onClose }) {
           <button onClick={onClose} className="btn-icon btn-ghost text-gray-400"><XIcon size={18} /></button>
         </div>
 
-        <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
+        <div className="p-5 space-y-3 overflow-y-auto flex-1">
           {listas.length === 0 && !creando && (
             <p className="text-sm text-gray-400 text-center py-2">No hay listas. Crea una nueva.</p>
           )}
@@ -312,7 +312,7 @@ function ModalAgregarALista({ recurso, onClose }) {
           )}
         </div>
 
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 flex-shrink-0">
           <button onClick={onClose} className="btn-secondary w-full">Listo</button>
         </div>
       </div>
@@ -437,9 +437,6 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos, listaColorMap }) 
           )}
         </div>
 
-        {modalLista && (
-          <ModalAgregarALista recurso={recurso} onClose={() => setModalLista(false)} />
-        )}
             {/* Lightbox video */}
             {verVideo && recurso.tipo === 'video' && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-8 bg-black/80 backdrop-blur-sm"
@@ -480,6 +477,11 @@ function CardRecurso({ recurso, onDelete, esDirector, musicos, listaColorMap }) 
             </button>
           </div>
         </div>
+      )}
+
+      {/* Modal agregar a lista */}
+      {modalLista && (
+        <ModalAgregarALista recurso={recurso} onClose={() => setModalLista(false)} />
       )}
 
       {/* Lightbox PDF */}

@@ -2,20 +2,22 @@ import { NavLink } from 'react-router-dom'
 import {
   HouseIcon, UsersThreeIcon, MusicNotesIcon, CurrencyDollarIcon,
   GearSixIcon, XIcon, SignOutIcon, PlaylistIcon, CreditCardIcon,
+  CalendarCheckIcon,
 } from '@phosphor-icons/react'
 import { useAuth, ROLES } from '../../contexts/AuthContext'
 
 const NAV_ITEMS = [
-  { to: '/',         label: 'Dashboard',  icon: HouseIcon,          end: true },
-  { separator: true, label: 'BANDA' },
-  { to: '/musicos',  label: 'Músicos',    icon: UsersThreeIcon },
-  { to: '/recursos', label: 'Recursos',   icon: MusicNotesIcon },
-  { to: '/listas',   label: 'Listas',     icon: PlaylistIcon },
-  { separator: true, label: 'ADMINISTRACIÓN' },
-  { to: '/gastos',   label: 'Gastos Fijos', icon: CreditCardIcon },
-  { to: '/finanzas', label: 'Finanzas',   icon: CurrencyDollarIcon },
-  { separator: true, label: 'SISTEMA' },
-  { to: '/ajustes',  label: 'Ajustes',    icon: GearSixIcon },
+  { to: '/',            label: 'Dashboard',    icon: HouseIcon,          end: true },
+  { separator: true,    label: 'BANDA' },
+  { to: '/musicos',     label: 'Músicos',      icon: UsersThreeIcon },
+  { to: '/asistencia',  label: 'Asistencia',   icon: CalendarCheckIcon },
+  { to: '/recursos',    label: 'Recursos',     icon: MusicNotesIcon },
+  { to: '/listas',      label: 'Listas',       icon: PlaylistIcon },
+  { separator: true,    label: 'ADMINISTRACIÓN' },
+  { to: '/gastos',      label: 'Gastos Fijos', icon: CreditCardIcon },
+  { to: '/finanzas',    label: 'Finanzas',     icon: CurrencyDollarIcon },
+  { separator: true,    label: 'SISTEMA' },
+  { to: '/ajustes',     label: 'Ajustes',      icon: GearSixIcon },
 ]
 
 export default function Sidebar({ open, onClose }) {

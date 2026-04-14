@@ -12,12 +12,13 @@ const ROLES_OPCIONES = [
 
 function ModalMusico({ musico = null, onClose, onSave }) {
   const [form, setForm] = useState({
-    nombre:      musico?.nombre      || '',
-    email:       musico?.email       || '',
-    instrumento: musico?.instrumento || '',
-    rol:         musico?.rol         || 'musico',
-    foto_url:    musico?.foto_url    || '',
-    password:    '',
+    nombre:           musico?.nombre           || '',
+    email:            musico?.email            || '',
+    instrumento:      musico?.instrumento      || '',
+    rol:              musico?.rol              || 'musico',
+    foto_url:         musico?.foto_url         || '',
+    fecha_nacimiento: musico?.fecha_nacimiento || '',
+    password:         '',
   })
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
@@ -37,11 +38,12 @@ function ModalMusico({ musico = null, onClose, onSave }) {
     }
     setLoading(true)
     const data = {
-      nombre:      form.nombre,
-      email:       form.email,
-      instrumento: form.instrumento,
-      rol:         form.rol,
-      foto_url:    form.foto_url,
+      nombre:           form.nombre,
+      email:            form.email,
+      instrumento:      form.instrumento,
+      rol:              form.rol,
+      foto_url:         form.foto_url,
+      fecha_nacimiento: form.fecha_nacimiento,
     }
     if (form.password) data.password = form.password
     const result = await onSave(data)
@@ -96,6 +98,11 @@ function ModalMusico({ musico = null, onClose, onSave }) {
               <select className="input" value={form.rol} onChange={e => setForm(p => ({...p, rol: e.target.value}))}>
                 {ROLES_OPCIONES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="label">Fecha de nacimiento</label>
+              <input className="input" type="date" value={form.fecha_nacimiento}
+                onChange={e => setForm(p => ({...p, fecha_nacimiento: e.target.value}))} />
             </div>
             <div className="col-span-2">
               <label className="label">{esEdicion ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña *'}</label>

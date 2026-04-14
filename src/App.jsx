@@ -6,6 +6,7 @@ import { RecursosProvider } from './contexts/RecursosContext'
 import { ListasProvider } from './contexts/ListasContext'
 import { GastosProvider } from './contexts/GastosContext'
 import { NotificacionesProvider } from './contexts/NotificacionesContext'
+import { AsistenciaProvider } from './contexts/AsistenciaContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import Layout from './components/layout/Layout'
 import Login from './pages/Login'
@@ -16,6 +17,7 @@ import Finanzas from './pages/Finanzas'
 import Ajustes from './pages/Ajustes'
 import Listas from './pages/Listas'
 import Gastos from './pages/Gastos'
+import Asistencia from './pages/Asistencia'
 
 export default function App() {
   return (
@@ -26,6 +28,7 @@ export default function App() {
             <RecursosProvider>
               <ListasProvider>
               <GastosProvider>
+              <AsistenciaProvider>
               <NotificacionesProvider>
               <Routes>
                 {/* Pública */}
@@ -33,19 +36,21 @@ export default function App() {
 
                 {/* Protegidas */}
                 <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-                  <Route path="/"         element={<Dashboard />} />
-                  <Route path="/musicos"  element={<Musicos />} />
-                  <Route path="/recursos" element={<Recursos />} />
-                  <Route path="/listas"   element={<Listas />} />
-                  <Route path="/gastos"   element={<Gastos />} />
-                  <Route path="/finanzas" element={<Finanzas />} />
-                  <Route path="/ajustes"  element={<Ajustes />} />
+                  <Route path="/"            element={<Dashboard />} />
+                  <Route path="/musicos"     element={<Musicos />} />
+                  <Route path="/recursos"    element={<Recursos />} />
+                  <Route path="/listas"      element={<Listas />} />
+                  <Route path="/gastos"      element={<Gastos />} />
+                  <Route path="/finanzas"    element={<Finanzas />} />
+                  <Route path="/asistencia"  element={<Asistencia />} />
+                  <Route path="/ajustes"     element={<Ajustes />} />
                 </Route>
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
               </NotificacionesProvider>
+              </AsistenciaProvider>
               </GastosProvider>
               </ListasProvider>
             </RecursosProvider>
