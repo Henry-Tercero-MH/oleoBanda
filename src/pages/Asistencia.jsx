@@ -64,15 +64,30 @@ function ModalEnsayo({ ensayo = null, onClose, onSave }) {
       .slice(0, 5)
   }, [ensayos, ensayo?.id])
 
+  const sumarHoras = (timeStr, horas) => {
+    const [hh, mm] = timeStr.split(':').map(Number)
+    const total = hh * 60 + mm + horas * 60
+    return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+  }
+
+  const horaInicio = ensayo?.hora || '18:00'
+  const horaFinDefault = ensayo?.hora_fin || sumarHoras(horaInicio, 4)
+
   const [form, setForm] = useState({
     titulo:      ensayo?.titulo      || '',
     tipo:        ensayo?.tipo        || 'ensayo',
     fecha:       normFecha(ensayo?.fecha) || hoy,
-    hora:        ensayo?.hora        || '18:00',
+    hora:        horaInicio,
+    hora_fin:    horaFinDefault,
     descripcion: ensayo?.descripcion || '',
     lat:         ensayo?.lat         || '',
     lng:         ensayo?.lng         || '',
   })
+
+  // Al cambiar hora inicio, recalcular hora_fin automáticamente
+  const handleHoraChange = (nuevaHora) => {
+    setForm(p => ({ ...p, hora: nuevaHora, hora_fin: sumarHoras(nuevaHora, 4) }))
+  }
   const [gpsLoading, setGpsLoading] = useState(false)
 
   const capturarUbicacion = () => {
@@ -130,9 +145,14 @@ function ModalEnsayo({ ensayo = null, onClose, onSave }) {
                 onChange={e => setForm(p => ({ ...p, fecha: e.target.value }))} required />
             </div>
             <div>
-              <label className="label">Hora</label>
+              <label className="label">Hora inicio</label>
               <input className="input" type="time" value={form.hora}
                 onChange={e => setForm(p => ({ ...p, hora: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Hora fin</label>
+              <input className="input" type="time" value={form.hora_fin}
+                onChange={e => setForm(p => ({ ...p, hora_fin: e.target.value }))} />
             </div>
             <div className="col-span-2">
               <label className="label">Descripción (opcional)</label>

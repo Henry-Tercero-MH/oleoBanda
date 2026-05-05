@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PlusIcon, TrashIcon, XIcon, CurrencyDollarIcon, TrendUpIcon, InfoIcon, CreditCardIcon, CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
+import { PlusIcon, TrashIcon, XIcon, CurrencyDollarIcon, TrendUpIcon, InfoIcon, CreditCardIcon, CaretDownIcon, CaretUpIcon, PrinterIcon } from '@phosphor-icons/react'
 import { useFinanzas } from '../contexts/FinanzasContext'
 import { useMusicos } from '../contexts/MusicosContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -361,6 +361,159 @@ function FilaGastoMusico({ gasto, musicoId, numMusicos, esDirector }) {
   )
 }
 
+// ── Voucher de pago ────────────────────────────────────────────────────────
+function imprimirVoucher({ musico, gastos, cuotaDeMusico, pagadoPorMusico, numMusicos }) {
+  const hoy = new Date()
+  const fechaLarga  = hoy.toLocaleDateString('es-GT', { year: 'numeric', month: 'long', day: 'numeric' })
+  const fechaCorta  = hoy.toLocaleDateString('es-GT', { year: 'numeric', month: '2-digit', day: '2-digit' })
+  const shortId     = musico.id?.slice(-7)?.toUpperCase() ?? 'XXXXXXX'
+
+  const detalles = gastos
+    .map(g => ({
+      nombre: g.nombre,
+      cuota:  cuotaDeMusico(g, musico.id, numMusicos),
+      pagado: pagadoPorMusico(g.id, musico.id),
+    }))
+    .filter(d => d.cuota > 0)
+
+  const totalCuotas = detalles.reduce((s, d) => s + d.cuota, 0)
+  const totalPagado = detalles.reduce((s, d) => s + d.pagado, 0)
+  const saldo       = Math.max(0, totalCuotas - totalPagado)
+  const fQ = n => `Q ${Number(n).toFixed(2)}`
+
+  const concepto = detalles.length === 1
+    ? detalles[0].nombre
+    : 'Cuotas de instrumentos'
+
+  const filasResumen = detalles.map(d => `
+    <div class="sum-row">
+      <span class="sum-label">${d.nombre}</span>
+      <span class="sum-val">${fQ(d.pagado)}</span>
+    </div>`).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Recibo — ${musico.nombre}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Arial,sans-serif;background:#e8e8e8;display:flex;flex-direction:column;align-items:center;padding:20px 16px;min-height:100vh}
+
+    .topbar{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:370px;margin-bottom:14px}
+    .topbar-left .lbl{font-size:11px;color:#888}
+    .topbar-left .rid{font-size:15px;font-weight:800;color:#111;letter-spacing:.5px}
+    .topbar-right{display:flex;align-items:center;gap:8px}
+    .btn-print{background:#111;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;letter-spacing:.3px}
+    .btn-close{background:#fff;border:1px solid #ccc;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;color:#555;display:flex;align-items:center;justify-content:center;line-height:1}
+
+    .receipt{background:#fff;width:100%;max-width:370px;padding:28px 26px 20px;box-shadow:0 4px 20px rgba(0,0,0,.13)}
+
+    .rcp-header{text-align:center;padding-bottom:18px}
+    .rcp-name{font-size:22px;font-weight:900;color:#111;letter-spacing:.5px;text-transform:uppercase}
+    .rcp-sub{font-size:11px;color:#777;margin-top:5px}
+
+    .dash{border:none;border-top:1.5px dashed #bbb;margin:16px 0}
+
+    .sec-title{text-align:center;font-size:10px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:#111}
+    .sec-id{text-align:center;font-size:11px;color:#aaa;margin-top:3px}
+
+    .field{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+    .field-lbl{font-size:12px;color:#666}
+    .field-val{font-size:12px;font-weight:700;color:#111;text-align:right;max-width:200px}
+
+    .amount-box{text-align:center;padding:6px 0 4px}
+    .amount-q{font-size:46px;font-weight:900;color:#111;letter-spacing:-1px;line-height:1}
+    .amount-sub{font-size:10px;color:#aaa;margin-top:6px;letter-spacing:1.5px;text-transform:uppercase}
+
+    .sum-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+    .sum-label{font-size:12px;color:#555}
+    .sum-val{font-size:12px;font-weight:600;color:#111}
+
+    .sep-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;border-top:1px solid #eee;padding-top:6px;margin-top:2px}
+    .sep-label{font-size:12px;font-weight:700;color:#111}
+    .sep-val{font-size:12px;font-weight:700;color:#111}
+
+    .paid{text-align:center;font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1px;padding:6px 0 2px}
+
+    .sig{display:flex;align-items:flex-end;gap:8px;margin-top:10px}
+    .sig-lbl{font-size:11px;color:#777;white-space:nowrap}
+    .sig-line{flex:1;border-bottom:1px solid #bbb;margin-bottom:2px}
+
+    .footer{text-align:center;font-size:10px;color:#bbb;margin-top:18px}
+
+    @media print{
+      body{background:#fff;padding:0}
+      .topbar{display:none}
+      .receipt{box-shadow:none;max-width:100%;padding:20px}
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="lbl">Recibo #</div>
+      <div class="rid">${shortId}</div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-print" onclick="window.print()">🖨&nbsp; Imprimir / PDF</button>
+      <button class="btn-close" onclick="window.close()">✕</button>
+    </div>
+  </div>
+
+  <div class="receipt">
+    <div class="rcp-header">
+      <div class="rcp-name">Óleo de Alegría</div>
+      <div class="rcp-sub">Salmos 45:7 — Banda Musical Cristiana</div>
+    </div>
+
+    <hr class="dash">
+
+    <div class="sec-title">Recibo de Pago</div>
+    <div class="sec-id"># ${shortId}</div>
+
+    <hr class="dash">
+
+    <div class="field"><span class="field-lbl">Fecha:</span><span class="field-val">${fechaLarga}</span></div>
+    <div class="field"><span class="field-lbl">Músico:</span><span class="field-val">${musico.nombre}</span></div>
+    <div class="field"><span class="field-lbl">Instrumento:</span><span class="field-val">${musico.instrumento ?? '—'}</span></div>
+    <div class="field"><span class="field-lbl">Concepto:</span><span class="field-val">${concepto}</span></div>
+
+    <hr class="dash">
+
+    <div class="amount-box">
+      <div class="amount-q">${fQ(totalPagado)}</div>
+      <div class="amount-sub">Monto recibido</div>
+    </div>
+
+    <hr class="dash">
+
+    ${filasResumen}
+    <div class="sum-row"><span class="sum-label">Deuda total:</span><span class="sum-val">${fQ(totalCuotas)}</span></div>
+    <div class="sum-row"><span class="sum-label">Total abonado:</span><span class="sum-val">${fQ(totalPagado)}</span></div>
+    <div class="sep-row"><span class="sep-label">Saldo pendiente:</span><span class="sep-val">${fQ(saldo)}</span></div>
+
+    <div class="paid">✓ DEUDA COMPLETAMENTE PAGADA</div>
+
+    <hr class="dash">
+
+    <div class="sig">
+      <span class="sig-lbl">Firma del director:</span>
+      <div class="sig-line"></div>
+    </div>
+
+    <div class="footer">Óleo de Alegría — Generado el ${fechaCorta}</div>
+  </div>
+
+  <script>window.onload = () => { window.print() }<\/script>
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=460,height=820')
+  win.document.write(html)
+  win.document.close()
+}
+
 // ── Tab Cuotas ─────────────────────────────────────────────────────────────
 function TabCuotas() {
   const { musicos } = useMusicos()
@@ -390,14 +543,28 @@ function TabCuotas() {
                 <p className="font-semibold text-gray-900">{m.nombre}</p>
                 <p className="text-xs text-gray-400">{m.instrumento}</p>
               </div>
-              <div className="text-right flex-shrink-0">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 {totalPendienteGastos > 0 ? (
-                  <>
+                  <div className="text-right">
                     <p className="text-sm font-bold text-red-600">{formatCurrency(totalPendienteGastos)}</p>
                     <p className="text-xs text-gray-400">pendiente</p>
-                  </>
+                  </div>
                 ) : (
-                  <span className="text-sm font-semibold text-green-600">Al día ✓</span>
+                  <>
+                    <span className="text-sm font-semibold text-green-600">Al día ✓</span>
+                    {gastos.length > 0 && (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          imprimirVoucher({ musico: m, gastos, cuotaDeMusico, pagadoPorMusico: pagadoGastoMusico, numMusicos })
+                        }}
+                        className="btn-icon btn-ghost text-gray-400 hover:text-primary-600 btn-sm"
+                        title="Imprimir / descargar comprobante"
+                      >
+                        <PrinterIcon size={15} />
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>

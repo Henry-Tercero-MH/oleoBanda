@@ -5,15 +5,18 @@ import Navbar from './Navbar'
 import { MapPinIcon, XIcon, CheckCircleIcon } from '@phosphor-icons/react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useAsistencia } from '../../contexts/AsistenciaContext'
+import { useMusicos } from '../../contexts/MusicosContext'
 
 const GPS_KEY = 'banda_gps_permiso_solicitado'
 
 // ── Hook de auto-marcado GPS en tiempo real ───────────────────
 function useGpsAutoMarca() {
   const { sesion } = useAuth()
-  const { ensayos, getRegistro, registrarAsistencia } = useAsistencia()
-  const marcadosRef = useRef(new Set()) // ensayos ya marcados esta sesión
-  const [toast, setToast] = useState(null) // { mensaje }
+  const { musicos } = useMusicos()
+  const { ensayos, getRegistro, registrarAsistencia, registrosDe } = useAsistencia()
+  const marcadosRef   = useRef(new Set()) // ensayos ya marcados esta sesión
+  const ausentesRef   = useRef(new Set()) // ensayos ya procesados para ausentes
+  const [toast, setToast] = useState(null)
 
   const distanciaMetros = (lat1, lng1, lat2, lng2) => {
     const R = 6371000
@@ -79,6 +82,42 @@ function useGpsAutoMarca() {
 
     return () => navigator.geolocation.clearWatch(watchId)
   }, [sesion, ensayos]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Marcar ausentes al terminar el ensayo
+  useEffect(() => {
+    if (!sesion) return
+
+    const marcarAusentes = async () => {
+      const hoy = new Date().toISOString().slice(0, 10)
+      const ahora = new Date()
+      const ahoraMin = ahora.getHours() * 60 + ahora.getMinutes()
+
+      for (const ensayo of ensayos) {
+        if (!ensayo.hora_fin) continue
+        const fechaEnsayo = String(ensayo.fecha).slice(0, 10)
+        if (fechaEnsayo !== hoy) continue
+        if (ausentesRef.current.has(ensayo.id)) continue
+
+        const [hh, mm] = ensayo.hora_fin.split(':').map(Number)
+        const finMin = hh * 60 + mm
+        if (ahoraMin < finMin) continue // todavía no termina
+
+        // El ensayo ya terminó — marcar ausentes a quienes no tienen registro
+        ausentesRef.current.add(ensayo.id)
+        const regs = registrosDe(ensayo.id)
+        for (const musico of musicos) {
+          const tieneRegistro = regs.some(r => r.musico_id === musico.id)
+          if (!tieneRegistro) {
+            await registrarAsistencia(ensayo.id, musico.id, 'ausente', 0)
+          }
+        }
+      }
+    }
+
+    marcarAusentes()
+    const interval = setInterval(marcarAusentes, 60 * 1000) // cada minuto
+    return () => clearInterval(interval)
+  }, [sesion, ensayos, musicos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return { toast }
 }
