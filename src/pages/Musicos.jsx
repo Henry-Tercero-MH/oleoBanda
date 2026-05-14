@@ -10,6 +10,19 @@ const ROLES_OPCIONES = [
   { value: 'director', label: 'Director' },
 ]
 
+// Cuotas el día 7 de cada mes desde fecha_inicio
+function calcularCuotaActual(gasto) {
+  const n = parseInt(gasto.num_cuotas) || 1
+  if (!gasto.fecha_inicio) return { cuotaNum: 1, fecha: null, total: n }
+  const inicio = new Date(gasto.fecha_inicio + 'T00:00:00')
+  const hoy    = new Date(); hoy.setHours(0, 0, 0, 0)
+  const dia7   = k => new Date(inicio.getFullYear(), inicio.getMonth() + (k - 1), 7)
+  for (let k = 1; k <= n; k++) {
+    if (hoy <= new Date(dia7(k).getTime() + 86400000)) return { cuotaNum: k, fecha: dia7(k), total: n }
+  }
+  return { cuotaNum: n, fecha: dia7(n), total: n }
+}
+
 function normFecha(f) {
   if (!f) return ''
   const s = String(f)
@@ -150,16 +163,18 @@ function FilaGastoFijo({ gasto, musicoId, numMusicos, esDirector }) {
   const [form, setForm] = useState({ monto: '', fecha: new Date().toISOString().slice(0, 10), descripcion: '' })
   const [loading, setLoading] = useState(false)
 
-  const cuotaMusico = cuotaDeMusico(gasto, musicoId, numMusicos)
-  const pagadoM     = pagadoPorMusico(gasto.id, musicoId)
-  const pendM       = Math.max(0, cuotaMusico - pagadoM)
-  const pctM        = cuotaMusico > 0 ? Math.min(100, Math.round((pagadoM / cuotaMusico) * 100)) : 100
-  const listoM      = pendM === 0
-  const hoy         = new Date()
-  const limite      = gasto.fecha_limite ? new Date(gasto.fecha_limite) : null
-  const diasRest    = limite ? Math.ceil((limite - hoy) / (1000 * 60 * 60 * 24)) : null
-  const vencido     = diasRest !== null && diasRest < 0
-  const abonos      = abonosPorMusico(gasto.id, musicoId)
+  const cuotaMusico    = cuotaDeMusico(gasto, musicoId, numMusicos)
+  const pagadoM        = pagadoPorMusico(gasto.id, musicoId)
+  const cuotaInfo      = calcularCuotaActual(gasto)
+  const cuotasMPagadas = cuotaMusico > 0 ? Math.floor(pagadoM / cuotaMusico) : 0
+  const cuotaAPagar    = Math.min(cuotaInfo.cuotaNum, cuotasMPagadas + 1)
+  const debidasM       = cuotaAPagar * cuotaMusico
+  const pendM          = Math.max(0, debidasM - pagadoM)
+  const pctM           = debidasM > 0 ? Math.min(100, Math.round((pagadoM / debidasM) * 100)) : 100
+  const listoM         = pendM === 0
+  const hoy            = new Date(); hoy.setHours(0, 0, 0, 0)
+  const vencido        = !listoM && cuotaInfo.fecha && hoy > cuotaInfo.fecha
+  const abonos         = abonosPorMusico(gasto.id, musicoId)
 
   const handleAbono = async (e) => {
     e.preventDefault()
@@ -177,9 +192,12 @@ function FilaGastoFijo({ gasto, musicoId, numMusicos, esDirector }) {
           <CreditCardIcon size={13} className={listoM ? 'text-green-500' : vencido ? 'text-red-500' : 'text-gray-400'} />
           <span className="text-sm font-medium text-gray-800 truncate">{gasto.nombre}</span>
           {vencido && !listoM && <span className="text-xs text-red-600 font-semibold">⚠ Vencido</span>}
-          {!listoM && !vencido && diasRest !== null && diasRest <= 7 && (
-            <span className="text-xs text-amber-600 font-semibold">⏰ {diasRest}d</span>
-          )}
+          {!listoM && !vencido && cuotaInfo.fecha && (() => {
+            const dias = Math.ceil((cuotaInfo.fecha - hoy) / 86400000)
+            return dias <= 7 && dias >= 0
+              ? <span className="text-xs text-amber-600 font-semibold">⏰ {dias}d</span>
+              : null
+          })()}
         </div>
         <span className={`text-sm font-bold ml-2 flex-shrink-0 ${listoM ? 'text-green-600' : 'text-red-600'}`}>
           {listoM ? '✓ Al día' : formatCurrency(pendM)}
@@ -191,8 +209,8 @@ function FilaGastoFijo({ gasto, musicoId, numMusicos, esDirector }) {
           <div className={`h-full rounded-full ${listoM ? 'bg-green-500' : 'bg-primary-500'}`} style={{ width: `${pctM}%` }} />
         </div>
         <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-          <span>{formatCurrency(pagadoM)} pagado</span>
-          <span>Cuota: {formatCurrency(cuotaMusico)}</span>
+          <span>{cuotasMPagadas}/{cuotaInfo.total} cuotas · {formatCurrency(pagadoM)} pagado</span>
+          <span>Cuota {cuotaAPagar}: {formatCurrency(cuotaMusico)}</span>
         </div>
       </div>
 
@@ -257,9 +275,12 @@ function SincronizarGastos({ gastos, musicoId, numMusicos }) {
   const [hecho, setHecho] = useState(false)
 
   const gastosPendientes = gastos.filter(g => {
-    const cuotaM  = cuotaDeMusico(g, musicoId, numMusicos)
-    const pagadoM = pagadoPorMusico(g.id, musicoId)
-    return cuotaM - pagadoM > 0.001
+    const cuotaM    = cuotaDeMusico(g, musicoId, numMusicos)
+    const pagadoM   = pagadoPorMusico(g.id, musicoId)
+    const cuotaInfo = calcularCuotaActual(g)
+    const cuotasPag = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : 0
+    const cuotaAP   = Math.min(cuotaInfo.cuotaNum, cuotasPag + 1)
+    return cuotaAP * cuotaM - pagadoM > 0.001
   })
 
   const handleSync = async () => {
@@ -267,16 +288,19 @@ function SincronizarGastos({ gastos, musicoId, numMusicos }) {
     setLoading(true)
     const hoy = new Date().toISOString().slice(0, 10)
     for (const g of gastosPendientes) {
-      const cuotaM  = cuotaDeMusico(g, musicoId, numMusicos)
-      const pagadoM = pagadoPorMusico(g.id, musicoId)
-      const pendM   = Math.round((cuotaM - pagadoM) * 100) / 100
+      const cuotaM    = cuotaDeMusico(g, musicoId, numMusicos)
+      const pagadoM   = pagadoPorMusico(g.id, musicoId)
+      const cuotaInfo = calcularCuotaActual(g)
+      const cuotasPag = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : 0
+      const cuotaAP   = Math.min(cuotaInfo.cuotaNum, cuotasPag + 1)
+      const pendM     = Math.round((cuotaAP * cuotaM - pagadoM) * 100) / 100
       if (pendM > 0) {
         await registrarAbono({
           gasto_id:    g.id,
           musico_id:   musicoId,
           monto:       pendM,
           fecha:       hoy,
-          descripcion: `Cuota sincronizada — ${g.nombre}`,
+          descripcion: `Cuota ${cuotaAP} — ${g.nombre}`,
         })
       }
     }
@@ -311,9 +335,12 @@ function ModalDeuda({ musico, onClose }) {
   const numMusicos = musicos.length || 1
 
   const pendienteGastos = gastos.reduce((sum, g) => {
-    const cuotaM  = cuotaDeMusico(g, musico.id, numMusicos)
-    const pagadoM = pagadoPorMusico(g.id, musico.id)
-    return sum + Math.max(0, cuotaM - pagadoM)
+    const cuotaM    = cuotaDeMusico(g, musico.id, numMusicos)
+    const pagadoM   = pagadoPorMusico(g.id, musico.id)
+    const cuotaInfo = calcularCuotaActual(g)
+    const cuotasPag = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : 0
+    const cuotaAP   = Math.min(cuotaInfo.cuotaNum, cuotasPag + 1)
+    return sum + Math.max(0, cuotaAP * cuotaM - pagadoM)
   }, 0)
 
   return (
@@ -395,17 +422,33 @@ export default function Musicos() {
           {musicos.map(m => {
             const numMusicos = musicos.length || 1
 
-            // Gastos fijos: cuotas pendientes de este músico (respeta exentos)
+            // Gastos fijos: cuotas activas pendientes de este músico
             const gastosConPend = gastos.filter(g => {
-              const cuotaM  = cuotaDeMusico(g, m.id, numMusicos)
-              const pagadoM = pagadoGastoMusico(g.id, m.id)
-              return cuotaM - pagadoM > 0.001
+              const cuotaM    = cuotaDeMusico(g, m.id, numMusicos)
+              const pagadoM   = pagadoGastoMusico(g.id, m.id)
+              const cuotaInfo = calcularCuotaActual(g)
+              const cuotasPag = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : 0
+              const cuotaAP   = Math.min(cuotaInfo.cuotaNum, cuotasPag + 1)
+              return cuotaAP * cuotaM - pagadoM > 0.001
             })
             const pendGastos = gastos.reduce((sum, g) => {
-              const cuotaM  = cuotaDeMusico(g, m.id, numMusicos)
-              const pagadoM = pagadoGastoMusico(g.id, m.id)
-              return sum + Math.max(0, cuotaM - pagadoM)
+              const cuotaM    = cuotaDeMusico(g, m.id, numMusicos)
+              const pagadoM   = pagadoGastoMusico(g.id, m.id)
+              const cuotaInfo = calcularCuotaActual(g)
+              const cuotasPag = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : 0
+              const cuotaAP   = Math.min(cuotaInfo.cuotaNum, cuotasPag + 1)
+              return sum + Math.max(0, cuotaAP * cuotaM - pagadoM)
             }, 0)
+            const primerGastoPend = gastosConPend[0]
+            const cuotaActivaLabel = primerGastoPend
+              ? (() => {
+                  const cuotaM  = cuotaDeMusico(primerGastoPend, m.id, numMusicos)
+                  const pagadoM = pagadoGastoMusico(primerGastoPend.id, m.id)
+                  const cuotasPag = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : 0
+                  const cuotaInfo = calcularCuotaActual(primerGastoPend)
+                  return Math.min(cuotasPag + 1, cuotaInfo.total)
+                })()
+              : null
 
             return (
               <div key={m.id} className="card hover:shadow-lg transition-all">
@@ -438,7 +481,9 @@ export default function Musicos() {
                         <CreditCardIcon size={11} /> Gastos fijos
                       </span>
                       <span className={pendGastos > 0 ? 'text-red-500 font-medium' : 'text-green-600 font-medium'}>
-                        {pendGastos > 0 ? `${formatCurrency(pendGastos)} pendiente` : 'Al día ✓'}
+                        {pendGastos > 0
+                          ? `Cuota ${cuotaActivaLabel} pendiente`
+                          : 'Al día ✓'}
                       </span>
                     </div>
                     {gastosConPend.length > 0 && (

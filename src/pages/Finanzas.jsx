@@ -237,6 +237,19 @@ function TabIngresos({ onNuevo }) {
   )
 }
 
+// Cuotas el día 7 de cada mes desde fecha_inicio (misma lógica que Gastos.jsx)
+function calcularCuotaActual(gasto) {
+  const n = parseInt(gasto.num_cuotas) || 1
+  if (!gasto.fecha_inicio) return { cuotaNum: 1, fecha: null, total: n }
+  const inicio = new Date(gasto.fecha_inicio + 'T00:00:00')
+  const hoy    = new Date(); hoy.setHours(0, 0, 0, 0)
+  const dia7   = k => new Date(inicio.getFullYear(), inicio.getMonth() + (k - 1), 7)
+  for (let k = 1; k <= n; k++) {
+    if (hoy <= new Date(dia7(k).getTime() + 86400000)) return { cuotaNum: k, fecha: dia7(k), total: n }
+  }
+  return { cuotaNum: n, fecha: dia7(n), total: n }
+}
+
 // ── Subcomponente: fila de gasto fijo por músico ─────────────────────────────
 function FilaGastoMusico({ gasto, musicoId, numMusicos, esDirector }) {
   const { pagadoPorMusico, abonosPorMusico, registrarAbono, eliminarAbono, cuotaDeMusico } = useGastos()
@@ -244,15 +257,22 @@ function FilaGastoMusico({ gasto, musicoId, numMusicos, esDirector }) {
   const [form, setForm] = useState({ monto: '', fecha: new Date().toISOString().slice(0, 10), descripcion: '' })
   const [loading, setLoading] = useState(false)
 
-  const cuotaMusico  = cuotaDeMusico(gasto, musicoId, numMusicos)
-  const pagadoM      = pagadoPorMusico(gasto.id, musicoId)
-  const pendM        = Math.max(0, cuotaMusico - pagadoM)
-  const pctM         = cuotaMusico > 0 ? Math.min(100, Math.round((pagadoM / cuotaMusico) * 100)) : 100
-  const listoM       = pendM === 0
+  const cuotaMusico    = cuotaDeMusico(gasto, musicoId, numMusicos)
+  const pagadoM        = pagadoPorMusico(gasto.id, musicoId)
+  const cuotaInfo      = calcularCuotaActual(gasto)
+  const cuotasMPagadas = cuotaMusico > 0 ? Math.floor(pagadoM / cuotaMusico) : 0
+  const cuotaAPagar    = Math.min(cuotaInfo.cuotaNum, cuotasMPagadas + 1)
+  const debidasM       = cuotaAPagar * cuotaMusico
+  const pendM          = Math.max(0, debidasM - pagadoM)
+  const pctM           = debidasM > 0 ? Math.min(100, Math.round((pagadoM / debidasM) * 100)) : 100
+  const listoM         = pendM === 0
   const hoy          = new Date()
-  const limite       = gasto.fecha_limite ? new Date(gasto.fecha_limite) : null
-  const diasRest     = limite ? Math.ceil((limite - hoy) / (1000 * 60 * 60 * 24)) : null
-  const vencido      = diasRest !== null && diasRest < 0
+  const limite       = gasto.fecha_limite ? new Date(gasto.fecha_limite + 'T00:00:00') : null
+  const proximaCuota = cuotaInfo.cuotaNum <= cuotaInfo.total
+    ? cuotaInfo.fecha
+    : null
+  // Vencido = el día 7 de la cuota activa ya pasó (y no está pagada)
+  const vencido      = !listoM && cuotaInfo.fecha && hoy > cuotaInfo.fecha
 
   const abonos = abonosPorMusico(gasto.id, musicoId)
 
@@ -279,9 +299,12 @@ function FilaGastoMusico({ gasto, musicoId, numMusicos, esDirector }) {
           <span className="text-sm font-medium text-gray-800 truncate">{gasto.nombre}</span>
           {listoM && <span className="text-xs text-green-600 font-semibold">✓</span>}
           {vencido && !listoM && <span className="text-xs text-red-600 font-semibold">⚠ Vencido</span>}
-          {!listoM && !vencido && diasRest !== null && diasRest <= 7 && (
-            <span className="text-xs text-amber-600 font-semibold">⏰ {diasRest}d</span>
-          )}
+          {!listoM && !vencido && cuotaInfo.fecha && (() => {
+            const dias = Math.ceil((cuotaInfo.fecha - hoy) / 86400000)
+            return dias <= 7 && dias >= 0
+              ? <span className="text-xs text-amber-600 font-semibold">⏰ {dias}d</span>
+              : null
+          })()}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className={`text-sm font-bold ${listoM ? 'text-green-600' : 'text-red-600'}`}>
@@ -298,62 +321,100 @@ function FilaGastoMusico({ gasto, musicoId, numMusicos, esDirector }) {
             style={{ width: `${pctM}%` }} />
         </div>
         <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-          <span>{formatCurrency(pagadoM)} pagado</span>
-          <span>Cuota: {formatCurrency(cuotaMusico)}</span>
+          <span>{cuotasMPagadas}/{cuotaInfo.total} cuotas · {formatCurrency(pagadoM)} pagado</span>
+          <span>Cuota {cuotaAPagar}: {formatCurrency(cuotaMusico)}</span>
         </div>
       </div>
 
-      {/* Detalle expandido */}
+      {/* Detalle expandido — lista de cuotas */}
       {abierto && (
-        <div className="mt-3 space-y-2 border-t border-gray-200 pt-3 animate-fade-in">
-          {/* Historial de abonos */}
-          {abonos.length > 0 && (
-            <div className="space-y-1">
-              {abonos.sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en)).map(a => (
-                <div key={a.id} className="flex items-center justify-between py-0.5">
-                  <div>
-                    <span className="text-xs font-medium text-gray-700">{formatCurrency(a.monto)}</span>
-                    <span className="text-xs text-gray-400 ml-2">{formatDate(a.fecha || a.creado_en)}</span>
-                    {a.descripcion && <span className="text-xs text-gray-400 ml-1">· {a.descripcion}</span>}
+        <div className="mt-3 border-t border-gray-200 pt-3 animate-fade-in">
+          <p className="text-xs font-semibold text-gray-500 mb-2">
+            Cuotas activas · {cuotasMPagadas}/{cuotaAPagar} pagadas
+          </p>
+
+          <div className="space-y-1.5">
+            {Array.from({ length: cuotaAPagar }, (_, i) => {
+              const k       = i + 1
+              const pagada  = k <= cuotasMPagadas
+              const esSig   = k === cuotasMPagadas + 1   // primera sin pagar
+              const inicio  = gasto.fecha_inicio
+                ? new Date(gasto.fecha_inicio + 'T00:00:00')
+                : new Date()
+              const fechaK  = new Date(inicio.getFullYear(), inicio.getMonth() + (k - 1), 7)
+
+              return (
+                <div key={k} className={`rounded-lg border px-3 py-2 transition-colors ${
+                  pagada  ? 'border-green-200 bg-green-50'
+                  : esSig ? 'border-primary-200 bg-primary-50'
+                  :         'border-gray-200 bg-gray-50'
+                }`}>
+                  {/* Fila de la cuota */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold ${
+                        pagada ? 'text-green-600' : esSig ? 'text-primary-600' : 'text-gray-400'
+                      }`}>
+                        Cuota {k}
+                      </span>
+                      <span className="text-xs text-gray-400">{formatDate(fechaK)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-600">
+                        {formatCurrency(cuotaMusico)}
+                      </span>
+                      {pagada
+                        ? <span className="text-xs text-green-600 font-bold">✓</span>
+                        : <span className="text-xs text-red-400 font-medium">Pendiente</span>}
+                    </div>
                   </div>
-                  {esDirector && (
-                    <button onClick={() => eliminarAbono(a.id)}
-                      className="btn-icon btn-ghost text-gray-300 hover:text-red-500 btn-sm">
-                      <TrashIcon size={12} />
-                    </button>
+
+                  {/* Formulario solo en la primera cuota sin pagar */}
+                  {esSig && esDirector && (
+                    <form onSubmit={handleAbono} className="mt-2 pt-2 border-t border-primary-200 space-y-1.5">
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input className="input" type="number" min="0.01" step="0.01"
+                          value={form.monto}
+                          onChange={e => setForm(p => ({ ...p, monto: e.target.value }))}
+                          placeholder={formatCurrency(cuotaMusico)} />
+                        <input className="input" type="date" value={form.fecha}
+                          onChange={e => setForm(p => ({ ...p, fecha: e.target.value }))} />
+                      </div>
+                      <input className="input" value={form.descripcion}
+                        onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))}
+                        placeholder={`Cuota ${k} — descripción (opcional)`} />
+                      <button type="submit" disabled={loading} className="btn-primary btn-sm w-full">
+                        {loading ? 'Registrando...' : `Pagar cuota ${k}`}
+                      </button>
+                    </form>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-          {abonos.length === 0 && <p className="text-xs text-gray-400">Sin abonos</p>}
+              )
+            })}
+          </div>
 
-          {/* Formulario abono */}
-          {esDirector && !listoM && (
-            <form onSubmit={handleAbono} className="rounded-lg bg-primary-50 border border-primary-100 p-2 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="label text-xs">Monto (Q)</label>
-                  <input className="input" type="number" min="0.01" step="0.01"
-                    value={form.monto}
-                    onChange={e => setForm(p => ({ ...p, monto: e.target.value }))}
-                    placeholder={formatCurrency(pendM)} />
-                </div>
-                <div>
-                  <label className="label text-xs">Fecha</label>
-                  <input className="input" type="date" value={form.fecha}
-                    onChange={e => setForm(p => ({ ...p, fecha: e.target.value }))} />
-                </div>
-                <div className="col-span-2">
-                  <input className="input" value={form.descripcion}
-                    onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))}
-                    placeholder="Descripción (opcional)..." />
-                </div>
+          {/* Historial de pagos */}
+          {abonos.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-1.5">Historial de pagos</p>
+              <div className="space-y-0.5">
+                {abonos.sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en)).map(a => (
+                  <div key={a.id} className="flex items-center justify-between py-0.5">
+                    <div>
+                      <span className="text-xs font-medium text-gray-700">{formatCurrency(a.monto)}</span>
+                      <span className="text-xs text-gray-400 ml-2">{formatDate(a.fecha || a.creado_en)}</span>
+                      {a.descripcion && <span className="text-xs text-gray-400 ml-1">· {a.descripcion}</span>}
+                    </div>
+                    {esDirector && (
+                      <button onClick={() => eliminarAbono(a.id)}
+                        className="btn-icon btn-ghost text-gray-300 hover:text-red-500 btn-sm">
+                        <TrashIcon size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-              <button type="submit" disabled={loading} className="btn-primary btn-sm w-full">
-                {loading ? 'Registrando...' : 'Registrar abono'}
-              </button>
-            </form>
+            </div>
           )}
         </div>
       )}
@@ -528,9 +589,12 @@ function TabCuotas() {
       {musicos.map(m => {
         const abierto = expandido === m.id
         const totalPendienteGastos = gastos.reduce((sum, g) => {
-          const cuotaM  = cuotaDeMusico(g, m.id, numMusicos)
-          const pagadoM = pagadoGastoMusico(g.id, m.id)
-          return sum + Math.max(0, cuotaM - pagadoM)
+          const cuotaM    = cuotaDeMusico(g, m.id, numMusicos)
+          const pagadoM   = pagadoGastoMusico(g.id, m.id)
+          const cuotaInfo = calcularCuotaActual(g)
+          const cuotasPag = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : 0
+          const cuotaAP   = Math.min(cuotaInfo.cuotaNum, cuotasPag + 1)
+          return sum + Math.max(0, cuotaAP * cuotaM - pagadoM)
         }, 0)
 
         return (

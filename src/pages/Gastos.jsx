@@ -135,6 +135,25 @@ function ModalGasto({ gasto = null, onClose }) {
   )
 }
 
+// Cuotas fijas el día 7 de cada mes, comenzando en el mes de fecha_inicio.
+// Cuota k vence el 7 del mes k. Un día después (el 8) aparece la cuota k+1.
+function calcularCuotaActual(gasto) {
+  const n = parseInt(gasto.num_cuotas) || 1
+  if (!gasto.fecha_inicio) return { cuotaNum: 1, fecha: null, total: n }
+
+  const inicio = new Date(gasto.fecha_inicio + 'T00:00:00')
+  const hoy    = new Date(); hoy.setHours(0, 0, 0, 0)
+
+  // Día 7 del mes correspondiente a la cuota k (JS maneja overflow de mes automáticamente)
+  const dia7 = k => new Date(inicio.getFullYear(), inicio.getMonth() + (k - 1), 7)
+
+  for (let k = 1; k <= n; k++) {
+    const venceK = new Date(dia7(k).getTime() + 86400000) // día 8 → aparece k+1
+    if (hoy <= venceK) return { cuotaNum: k, fecha: dia7(k), total: n }
+  }
+  return { cuotaNum: n, fecha: dia7(n), total: n }
+}
+
 // ── Card de gasto ─────────────────────────────────────────────────────────────
 function CardGasto({ gasto }) {
   const { registrarAbono, eliminarAbono, eliminarGasto, pagadoDe, pagadoPorMusico, abonosPorMusico, toggleExento, cuotaDeMusico } = useGastos()
@@ -157,8 +176,18 @@ function CardGasto({ gasto }) {
   const exentos        = Array.isArray(gasto.exentos) ? gasto.exentos : []
   const pagadoTotal    = pagadoDe(gasto.id)
   const pendienteTotal = Math.max(0, gasto.deuda_total - pagadoTotal)
-  const pct            = gasto.deuda_total > 0 ? Math.min(100, Math.round((pagadoTotal / gasto.deuda_total) * 100)) : 0
   const listo          = pendienteTotal === 0
+
+  // Cuota activa según fecha
+  const cuotaInfo = calcularCuotaActual(gasto)
+  const pagantes  = Math.max(1, numMusicos - exentos.length)
+  // Cuotas completadas globalmente (todos han pagado esa cuota)
+  const cuotasPagadasGlobal = gasto.monto_cuota > 0
+    ? Math.min(cuotaInfo.total, Math.floor(pagadoTotal / gasto.monto_cuota))
+    : 0
+  const pct = cuotaInfo.total > 0
+    ? Math.min(100, Math.round((cuotasPagadasGlobal / cuotaInfo.total) * 100))
+    : 0
 
   // Días restantes
   const hoy        = new Date()
@@ -243,27 +272,33 @@ function CardGasto({ gasto }) {
           </div>
         </div>
 
-        {/* Resumen montos */}
-        <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-          <div className="rounded-xl bg-gray-50 p-2">
-            <p className="text-sm font-bold text-gray-800">{formatCurrency(gasto.deuda_total)}</p>
-            <p className="text-xs text-gray-400">Total deuda</p>
+        {/* Cuota activa */}
+        <div className="mt-3 flex items-stretch gap-2">
+          <div className="flex-1 rounded-xl bg-primary-50 border border-primary-100 p-3">
+            <p className="text-xs text-primary-600 font-medium mb-0.5">Cuota activa</p>
+            <p className="text-xl font-bold text-primary-700 leading-none">
+              {cuotaInfo.cuotaNum}
+              <span className="text-sm font-normal text-primary-400"> / {cuotaInfo.total}</span>
+            </p>
+            {cuotaInfo.fecha && (
+              <p className="text-xs text-primary-500 mt-1">{formatDate(cuotaInfo.fecha)}</p>
+            )}
           </div>
-          <div className="rounded-xl bg-green-50 p-2">
-            <p className="text-sm font-bold text-green-700">{formatCurrency(pagadoTotal)}</p>
-            <p className="text-xs text-green-500">Pagado</p>
+          <div className="rounded-xl bg-green-50 border border-green-100 p-3 text-center min-w-[60px]">
+            <p className="text-xl font-bold text-green-700 leading-none">{cuotasPagadasGlobal}</p>
+            <p className="text-xs text-green-500 mt-1">pagadas</p>
           </div>
-          <div className="rounded-xl bg-red-50 p-2">
-            <p className="text-sm font-bold text-red-600">{formatCurrency(pendienteTotal)}</p>
-            <p className="text-xs text-red-400">Pendiente</p>
+          <div className="rounded-xl bg-red-50 border border-red-100 p-3 text-center min-w-[60px]">
+            <p className="text-xl font-bold text-red-500 leading-none">{cuotaInfo.total - cuotasPagadasGlobal}</p>
+            <p className="text-xs text-red-400 mt-1">restantes</p>
           </div>
         </div>
 
-        {/* Barra progreso global */}
+        {/* Barra de cuotas completadas */}
         <div className="mt-3">
           <div className="flex justify-between text-xs text-gray-400 mb-1">
-            <span>Progreso general</span>
-            <span>{pct}%</span>
+            <span>Cuotas completadas</span>
+            <span>{cuotasPagadasGlobal}/{cuotaInfo.total}</span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div className={`h-full rounded-full transition-all ${listo ? 'bg-green-500' : 'bg-gradient-to-r from-primary-500 to-violet-500'}`}
@@ -281,11 +316,17 @@ function CardGasto({ gasto }) {
               <div className="space-y-2">
                 {musicos.map(m => {
                   const esExento  = exentos.includes(m.id)
-                  const cuotaM    = cuotaDeMusico(gasto, m.id, numMusicos)
+                  const cuotaM    = cuotaDeMusico(gasto, m.id, numMusicos) // monto por cuota por músico
                   const pagadoM   = pagadoPorMusico(gasto.id, m.id)
-                  const pendM     = Math.max(0, cuotaM - pagadoM)
-                  const pctM      = cuotaM > 0 ? Math.min(100, Math.round((pagadoM / cuotaM) * 100)) : 100
-                  const listoM    = esExento || pendM === 0
+                  // Cuántas cuotas ha pagado este músico
+                  const cuotasMPagadas = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : cuotaInfo.cuotaNum
+                  // Al día = pagó hasta la cuota activa inclusive
+                  const listoM    = esExento || cuotasMPagadas >= cuotaInfo.cuotaNum
+                  // Pendiente = lo que falta para cubrir todas las cuotas activas
+                  const pendM     = esExento ? 0 : Math.max(0, cuotaInfo.cuotaNum * cuotaM - pagadoM)
+                  const pctM      = !esExento && (cuotaInfo.cuotaNum * cuotaM) > 0
+                    ? Math.min(100, Math.round(pagadoM / (cuotaInfo.cuotaNum * cuotaM) * 100))
+                    : 100
                   return (
                     <div key={m.id}
                       className={`rounded-xl p-2 transition-colors ${esExento ? 'bg-gray-50 opacity-60' : musicoSel === m.id ? 'bg-primary-50' : 'hover:bg-gray-50'}`}>
@@ -306,13 +347,16 @@ function CardGasto({ gasto }) {
                               <p className={`text-sm font-medium ${esExento ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{m.nombre}</p>
                               {esExento && <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">Exento</span>}
                             </div>
-                            <p className="text-xs text-gray-400">{m.instrumento}{!esExento && ` · Cuota: ${formatCurrency(cuotaM)}`}</p>
+                            <p className="text-xs text-gray-400">
+                              {m.instrumento}
+                              {!esExento && ` · ${cuotasMPagadas}/${cuotaInfo.total} cuotas · ${formatCurrency(cuotaM)}/c`}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {!esExento && (
                             <span className={`text-xs font-semibold ${listoM ? 'text-green-600' : 'text-red-500'}`}>
-                              {listoM ? '✓ Al día' : `${formatCurrency(pendM)} pend.`}
+                              {listoM ? `✓ Cuota ${cuotaInfo.cuotaNum} pagada` : `${formatCurrency(pendM)} pend.`}
                             </span>
                           )}
                           {/* Toggle exento — solo director */}
@@ -389,7 +433,9 @@ function CardGasto({ gasto }) {
                       value={form.monto}
                       onChange={e => setForm(p => ({ ...p, monto: e.target.value }))}
                       placeholder={formatCurrency(cuotaDeMusico(gasto, form.musico_id, numMusicos))} />
-                    <p className="text-xs text-gray-400 mt-0.5">Cuota: {formatCurrency(cuotaDeMusico(gasto, form.musico_id, numMusicos))}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Cuota {cuotaInfo.cuotaNum}: {formatCurrency(cuotaDeMusico(gasto, form.musico_id, numMusicos))}
+                    </p>
                   </div>
                   <div>
                     <label className="label text-xs">Fecha</label>
