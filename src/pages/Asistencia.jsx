@@ -578,7 +578,6 @@ function TabEstadisticas() {
         ...m,
         stats: statsDe(m.id, modo === 'mes' ? mes : null, anio),
       }))
-      .filter(m => m.stats.total > 0)
       .sort((a, b) => b.stats.pctPuntual - a.stats.pctPuntual)
   , [musicos, statsDe, modo, mes, anio])
 
@@ -763,7 +762,7 @@ function TabPremios() {
 
   const periodo = modo === 'mes' ? `${MESES[mes]} ${anio}` : `Año ${anio}`
 
-  const hayDatos = rPuntual.length > 0
+  const hayDatos = rPuntual.some(m => m.stats.total > 0)
 
   return (
     <div className="space-y-4">

@@ -8,12 +8,25 @@ import { useGastos } from '../contexts/GastosContext'
 import { useAsistencia } from '../contexts/AsistenciaContext'
 import { formatCurrency, formatDate } from '../utils/formatters'
 
+// Cuotas el día 7 de cada mes desde fecha_inicio
+function calcularCuotaActual(gasto) {
+  const n = parseInt(gasto.num_cuotas) || 1
+  if (!gasto.fecha_inicio) return { cuotaNum: 1, fecha: null, total: n }
+  const inicio = new Date(gasto.fecha_inicio + 'T00:00:00')
+  const hoy    = new Date(); hoy.setHours(0, 0, 0, 0)
+  const dia7   = k => new Date(inicio.getFullYear(), inicio.getMonth() + (k - 1), 7)
+  for (let k = 1; k <= n; k++) {
+    if (hoy <= new Date(dia7(k).getTime() + 86400000)) return { cuotaNum: k, fecha: dia7(k), total: n }
+  }
+  return { cuotaNum: n, fecha: dia7(n), total: n }
+}
+
 export default function Dashboard() {
   const { sesion } = useAuth()
   const { musicos } = useMusicos()
   const { ingresos, pagosCuota, fondoDisponible, totalIngresos } = useFinanzas()
   const { recursos } = useRecursos()
-  const { gastos, pagadoDe, pagadoPorMusico: pagadoGastoMusico, cuotaDeMusico, totalPendiente: gastosPendiente } = useGastos()
+  const { gastos, pagadoDe, pagadoPorMusico: pagadoGastoMusico, cuotaDeMusico } = useGastos()
   const { rankingPuntualidad } = useAsistencia()
 
   const numMusicos = musicos.length || 1
@@ -45,24 +58,39 @@ export default function Dashboard() {
   const anioActual = new Date().getFullYear()
   const topMes = rankingPuntualidad(musicos, mesActual, anioActual).slice(0, 3)
 
-  // Por músico: cuánto debe pagar de cada gasto y cuánto ha pagado
+  // Por músico: pendiente solo de cuotas con deadline vencido
   const estadoPorMusico = musicos.map(m => {
-    let totalCuota    = 0
-    let totalPagado   = 0
-    let gastosExento  = 0
+    let totalDebido  = 0
+    let totalPagado  = 0
+    let gastosExento = 0
     gastos.forEach(g => {
       const exentos = Array.isArray(g.exentos) ? g.exentos : []
       if (exentos.includes(m.id)) { gastosExento++; return }
-      const cuotaM  = cuotaDeMusico(g, m.id, numMusicos)
-      const pagadoM = pagadoGastoMusico(g.id, m.id)
-      totalCuota  += cuotaM
-      totalPagado += Math.min(pagadoM, cuotaM)
+      const cuotaM     = cuotaDeMusico(g, m.id, numMusicos)
+      const pagadoM    = pagadoGastoMusico(g.id, m.id)
+      const cuotaInfo  = calcularCuotaActual(g)
+      const cuotasPag  = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : 0
+      const cuotasVenc = Math.max(0, cuotaInfo.cuotaNum - 1)
+      const cuotaAP    = Math.min(cuotasVenc, cuotasPag + 1)
+      const debidoM    = cuotaAP * cuotaM
+      totalDebido += debidoM
+      totalPagado += Math.min(pagadoM, debidoM)
     })
     const esExentoTotal = gastos.length > 0 && gastosExento === gastos.length
-    return { ...m, totalCuota, totalPagado, pendiente: Math.max(0, totalCuota - totalPagado), gastosExento, esExentoTotal }
+    return { ...m, totalCuota: totalDebido, totalPagado, pendiente: Math.max(0, totalDebido - totalPagado), gastosExento, esExentoTotal }
   }).sort((a, b) => b.pendiente - a.pendiente)
 
   const musicosPend = estadoPorMusico.filter(m => m.pendiente > 0).length
+
+  // Pendiente global solo de cuotas vencidas
+  const gastosPendiente = gastos.reduce((sum, g) => {
+    const cuotaInfo  = calcularCuotaActual(g)
+    const pagadoTotal = pagadoDe(g.id)
+    const cuotasPag  = g.monto_cuota > 0 ? Math.floor(pagadoTotal / g.monto_cuota) : 0
+    const cuotasVenc = Math.max(0, cuotaInfo.cuotaNum - 1)
+    const cuotaAP    = Math.min(cuotasVenc, cuotasPag + 1)
+    return sum + Math.max(0, cuotaAP * g.monto_cuota - pagadoTotal)
+  }, 0)
 
   const ultimosMovimientos = [
     ...ingresos.map(i => ({ ...i, _tipo: 'ingreso' })),
@@ -88,20 +116,18 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="stat-card card-gradient-green">
+        <Link to="/finanzas" className="stat-card card-gradient-green hover:shadow-md transition-shadow">
           <div className="stat-icon bg-gradient-to-br from-green-500 to-emerald-600">
             <CurrencyDollarIcon size={22} className="text-white" />
           </div>
           <div>
             <p className="stat-label text-green-700">Fondo Disponible</p>
             <p className="stat-value">{formatCurrency(fondoDisponible)}</p>
-            <p className="text-xs text-green-600 mt-0.5">
-              de {formatCurrency(totalIngresos)} recaudados
-            </p>
+            <p className="text-xs text-green-600 mt-0.5">de {formatCurrency(totalIngresos)} recaudados</p>
           </div>
-        </div>
+        </Link>
 
-        <div className="stat-card card-gradient-orange">
+        <Link to="/gastos" className="stat-card card-gradient-orange hover:shadow-md transition-shadow">
           <div className="stat-icon bg-gradient-to-br from-orange-500 to-red-500">
             <CreditCardIcon size={22} className="text-white" />
           </div>
@@ -112,9 +138,9 @@ export default function Dashboard() {
               {musicosPend > 0 ? `${musicosPend} músico${musicosPend !== 1 ? 's' : ''} con pendiente` : 'todos al día ✓'}
             </p>
           </div>
-        </div>
+        </Link>
 
-        <div className="stat-card card-gradient-purple">
+        <Link to="/musicos" className="stat-card card-gradient-purple hover:shadow-md transition-shadow">
           <div className="stat-icon bg-gradient-to-br from-primary-500 to-violet-600">
             <UsersThreeIcon size={22} className="text-white" />
           </div>
@@ -123,9 +149,9 @@ export default function Dashboard() {
             <p className="stat-value">{musicos.length}</p>
             <p className="text-xs text-primary-600 mt-0.5">miembros activos</p>
           </div>
-        </div>
+        </Link>
 
-        <div className="stat-card card-gradient-blue">
+        <Link to="/recursos" className="stat-card card-gradient-blue hover:shadow-md transition-shadow">
           <div className="stat-icon bg-gradient-to-br from-blue-500 to-cyan-600">
             <BookOpenIcon size={22} className="text-white" />
           </div>
@@ -134,7 +160,7 @@ export default function Dashboard() {
             <p className="stat-value">{recursos.length}</p>
             <p className="text-xs text-blue-600 mt-0.5">videos, partituras e imágenes</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Widgets Gastos Fijos — dos columnas */}
@@ -157,14 +183,18 @@ export default function Dashboard() {
             </div>
             <div className="space-y-3">
               {gastos.slice(0, 4).map(g => {
-                const pagado    = pagadoDe(g.id)
-                const pendiente = Math.max(0, g.deuda_total - pagado)
-                const pct       = g.deuda_total > 0 ? Math.min(100, Math.round((pagado / g.deuda_total) * 100)) : 0
-                const listo     = pendiente === 0
-                const hoy       = new Date()
-                const limite    = g.fecha_limite ? new Date(g.fecha_limite) : null
-                const diasRest  = limite ? Math.ceil((limite - hoy) / (1000 * 60 * 60 * 24)) : null
-                const vencido   = diasRest !== null && diasRest < 0
+                const cuotaInfo   = calcularCuotaActual(g)
+                const pagadoTotal = pagadoDe(g.id)
+                const cuotasPagG  = g.monto_cuota > 0 ? Math.floor(pagadoTotal / g.monto_cuota) : 0
+                const cuotasVenc  = Math.max(0, cuotaInfo.cuotaNum - 1)
+                const cuotaAP     = Math.min(cuotasVenc, cuotasPagG + 1)
+                const debidoHoy   = cuotaAP * g.monto_cuota
+                const pendiente   = Math.max(0, debidoHoy - pagadoTotal)
+                const pct         = debidoHoy > 0 ? Math.min(100, Math.round((pagadoTotal / debidoHoy) * 100)) : 100
+                const listo       = pendiente === 0
+                const hoy         = new Date(); hoy.setHours(0, 0, 0, 0)
+                const vencido     = !listo && cuotaInfo.fecha && hoy > cuotaInfo.fecha
+                const diasRest    = cuotaInfo.fecha ? Math.ceil((cuotaInfo.fecha - hoy) / 86400000) : null
                 return (
                   <div key={g.id}>
                     <div className="flex items-center justify-between mb-1">
@@ -174,16 +204,16 @@ export default function Dashboard() {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="text-sm font-medium text-gray-800 truncate">{g.nombre}</p>
                             {vencido && !listo && <span className="text-xs text-red-500 font-semibold flex-shrink-0">⚠ Vencido</span>}
-                            {!vencido && !listo && diasRest !== null && diasRest <= 7 && (
+                            {!vencido && !listo && diasRest !== null && diasRest <= 7 && diasRest >= 0 && (
                               <span className="text-xs text-amber-500 font-semibold flex-shrink-0">⏰ {diasRest}d</span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400">Cuota: {formatCurrency(g.monto_cuota)} · {g.num_cuotas} cuotas</p>
+                          <p className="text-xs text-gray-400">Cuota {cuotaAP}/{cuotaInfo.total} · {formatCurrency(g.monto_cuota)}/cuota</p>
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0 ml-2">
                         {listo
-                          ? <span className="text-xs font-semibold text-green-600">✓ Pagado</span>
+                          ? <span className="text-xs font-semibold text-green-600">✓ Al día</span>
                           : <><p className="text-xs font-semibold text-red-600">{formatCurrency(pendiente)}</p><p className="text-xs text-gray-400">pendiente</p></>
                         }
                       </div>
@@ -192,7 +222,7 @@ export default function Dashboard() {
                       <div className={`h-full rounded-full transition-all ${listo ? 'bg-green-500' : 'bg-gradient-to-r from-primary-500 to-violet-500'}`}
                         style={{ width: `${pct}%` }} />
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{pct}% pagado de {formatCurrency(g.deuda_total)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{cuotasPagG}/{cuotaInfo.total} cuotas pagadas · {formatCurrency(pagadoTotal)} abonado</p>
                   </div>
                 )
               })}
@@ -405,7 +435,9 @@ export default function Dashboard() {
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-gray-800">Últimos Movimientos</h2>
-          <CalendarBlankIcon size={16} className="text-gray-400" />
+          <Link to="/finanzas" className="flex items-center gap-1 text-xs text-primary-600 hover:underline">
+            Ver todo <ArrowRightIcon size={12} />
+          </Link>
         </div>
         {ultimosMovimientos.length === 0 ? (
           <div className="text-center py-8 text-gray-400">

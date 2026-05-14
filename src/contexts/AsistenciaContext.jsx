@@ -154,19 +154,17 @@ export function AsistenciaProvider({ children }) {
     return { total, presente, tardanza, ausente, justificado, sinMarcar, puntos, maxPuntos, pctPuntual, pctAsiste }
   }, [ensayos, registros])
 
-  /** Ranking de músicos ordenado por puntualidad */
+  /** Ranking de músicos ordenado por puntualidad — incluye todos aunque no tengan registros */
   const rankingPuntualidad = useCallback((musicos, mes = null, anio = null) =>
     musicos
       .map(m => ({ ...m, stats: statsDe(m.id, mes, anio) }))
-      .filter(m => m.stats.total > 0)
       .sort((a, b) => b.stats.pctPuntual - a.stats.pctPuntual || b.stats.presente - a.stats.presente)
   , [statsDe])
 
-  /** Ranking de músicos ordenado por asistencia */
+  /** Ranking de músicos ordenado por asistencia — incluye todos aunque no tengan registros */
   const rankingAsistencia = useCallback((musicos, mes = null, anio = null) =>
     musicos
       .map(m => ({ ...m, stats: statsDe(m.id, mes, anio) }))
-      .filter(m => m.stats.total > 0)
       .sort((a, b) => b.stats.pctAsiste - a.stats.pctAsiste || b.stats.presente - a.stats.presente)
   , [statsDe])
 

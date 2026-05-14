@@ -261,7 +261,10 @@ function FilaGastoMusico({ gasto, musicoId, numMusicos, esDirector }) {
   const pagadoM        = pagadoPorMusico(gasto.id, musicoId)
   const cuotaInfo      = calcularCuotaActual(gasto)
   const cuotasMPagadas = cuotaMusico > 0 ? Math.floor(pagadoM / cuotaMusico) : 0
-  const cuotaAPagar    = Math.min(cuotaInfo.cuotaNum, cuotasMPagadas + 1)
+  // Solo cuentan como deuda las cuotas con deadline ya pasado (cuotaNum - 1)
+  // La cuota cuotaNum es la "próxima" y no es deuda hasta que pase su fecha
+  const cuotasVencidas = Math.max(0, cuotaInfo.cuotaNum - 1)
+  const cuotaAPagar    = Math.min(cuotasVencidas, cuotasMPagadas + 1)
   const debidasM       = cuotaAPagar * cuotaMusico
   const pendM          = Math.max(0, debidasM - pagadoM)
   const pctM           = debidasM > 0 ? Math.min(100, Math.round((pagadoM / debidasM) * 100)) : 100
@@ -330,14 +333,15 @@ function FilaGastoMusico({ gasto, musicoId, numMusicos, esDirector }) {
       {abierto && (
         <div className="mt-3 border-t border-gray-200 pt-3 animate-fade-in">
           <p className="text-xs font-semibold text-gray-500 mb-2">
-            Cuotas activas · {cuotasMPagadas}/{cuotaAPagar} pagadas
+            Cuotas · {cuotasMPagadas}/{cuotaInfo.total} pagadas
           </p>
 
           <div className="space-y-1.5">
-            {Array.from({ length: cuotaAPagar }, (_, i) => {
-              const k       = i + 1
-              const pagada  = k <= cuotasMPagadas
-              const esSig   = k === cuotasMPagadas + 1   // primera sin pagar
+            {Array.from({ length: cuotaInfo.cuotaNum }, (_, i) => {
+              const k        = i + 1
+              const pagada   = k <= cuotasMPagadas
+              const esProxima = k === cuotaInfo.cuotaNum && k > cuotasVencidas
+              const esSig    = !pagada && k === Math.min(cuotasMPagadas + 1, cuotaInfo.cuotaNum)
               const inicio  = gasto.fecha_inicio
                 ? new Date(gasto.fecha_inicio + 'T00:00:00')
                 : new Date()
@@ -345,15 +349,16 @@ function FilaGastoMusico({ gasto, musicoId, numMusicos, esDirector }) {
 
               return (
                 <div key={k} className={`rounded-lg border px-3 py-2 transition-colors ${
-                  pagada  ? 'border-green-200 bg-green-50'
-                  : esSig ? 'border-primary-200 bg-primary-50'
-                  :         'border-gray-200 bg-gray-50'
+                  pagada    ? 'border-green-200 bg-green-50'
+                  : esProxima ? 'border-blue-200 bg-blue-50'
+                  : esSig   ? 'border-primary-200 bg-primary-50'
+                  :           'border-gray-200 bg-gray-50'
                 }`}>
                   {/* Fila de la cuota */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-bold ${
-                        pagada ? 'text-green-600' : esSig ? 'text-primary-600' : 'text-gray-400'
+                        pagada ? 'text-green-600' : esProxima ? 'text-blue-600' : esSig ? 'text-primary-600' : 'text-gray-400'
                       }`}>
                         Cuota {k}
                       </span>
@@ -365,7 +370,9 @@ function FilaGastoMusico({ gasto, musicoId, numMusicos, esDirector }) {
                       </span>
                       {pagada
                         ? <span className="text-xs text-green-600 font-bold">✓</span>
-                        : <span className="text-xs text-red-400 font-medium">Pendiente</span>}
+                        : esProxima
+                          ? <span className="text-xs text-blue-500 font-medium">Próxima</span>
+                          : <span className="text-xs text-red-400 font-medium">Pendiente</span>}
                     </div>
                   </div>
 
@@ -589,11 +596,12 @@ function TabCuotas() {
       {musicos.map(m => {
         const abierto = expandido === m.id
         const totalPendienteGastos = gastos.reduce((sum, g) => {
-          const cuotaM    = cuotaDeMusico(g, m.id, numMusicos)
-          const pagadoM   = pagadoGastoMusico(g.id, m.id)
-          const cuotaInfo = calcularCuotaActual(g)
-          const cuotasPag = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : 0
-          const cuotaAP   = Math.min(cuotaInfo.cuotaNum, cuotasPag + 1)
+          const cuotaM      = cuotaDeMusico(g, m.id, numMusicos)
+          const pagadoM     = pagadoGastoMusico(g.id, m.id)
+          const cuotaInfo   = calcularCuotaActual(g)
+          const cuotasPag   = cuotaM > 0 ? Math.floor(pagadoM / cuotaM) : 0
+          const cuotasVenc  = Math.max(0, cuotaInfo.cuotaNum - 1)
+          const cuotaAP     = Math.min(cuotasVenc, cuotasPag + 1)
           return sum + Math.max(0, cuotaAP * cuotaM - pagadoM)
         }, 0)
 
